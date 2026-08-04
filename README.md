@@ -51,7 +51,7 @@ jobs:
         lib/db/migrations
 ```
 
-Pin `<sha>` to the commit a release tag points at. The job runs on
+The pinned commit is the one the `v0.1.0` tag points at. The job runs on
 `ubuntu-slim`. The `exclude` input is optional; see the inputs table.
 
 ### Escape hatch: composite action
