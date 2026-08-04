@@ -1,0 +1,7 @@
+# actionlint 1.7.12 does not know the job context's reusable-workflow identity
+# properties (job.workflow_sha, job.workflow_repository). They are real:
+# https://docs.github.com/en/actions/reference/workflows-and-actions/contexts
+paths:
+  .github/workflows/ratchet.yml:
+    ignore:
+      - 'property "workflow_(sha|repository)" is not defined in object type'

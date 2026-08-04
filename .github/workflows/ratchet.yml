@@ -1,0 +1,47 @@
+name: Dash ratchet
+
+# Callable job for the unicode-dash gate: dashes may only ever decrease. The
+# caller owns the pull_request trigger and its branch list; this file owns the
+# runner tier, the checkout, and the timeout.
+
+on:
+  workflow_call:
+    inputs:
+      exclude:
+        description: Directories held out of the rule, one per line.
+        type: string
+        default: ""
+      marker:
+        description: A line that carries this marker keeps its dash.
+        type: string
+        default: dash-ok
+
+permissions:
+  contents: read
+
+jobs:
+  dashes:
+    name: Unicode dashes
+    # ubuntu-slim runs unprivileged, so harden-runner cannot load here. The
+    # gate needs only bash, git, and perl, all on slim's image.
+    runs-on: ubuntu-slim
+    timeout-minutes: 5 # slim terminates any job at 15
+    steps:
+      # fetch-depth 0 is what puts origin/<base> in the clone; the gate needs
+      # it to diff and to count the before side.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # job.workflow_sha is the ref the caller pinned THIS file to, so the
+      # action code below always matches this workflow revision. Not on GHES.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .dash-ratchet
+          persist-credentials: false
+      - uses: ./.dash-ratchet
+        with:
+          exclude: ${{ inputs.exclude }}
+          marker: ${{ inputs.marker }}
