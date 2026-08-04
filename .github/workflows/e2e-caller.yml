@@ -1,0 +1,14 @@
+name: E2E caller
+
+# Scratch proof that the reusable workflow resolves its own source through
+# job.workflow_sha when called by ref. Deleted before merge.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dashes:
+    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@4ad5d35314782517511b8e5fc3b98d097499dc7c # main
