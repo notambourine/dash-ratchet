@@ -25,7 +25,7 @@ jobs:
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck -x scripts/check-dashes.sh scripts/lib/dash-set.sh test/run.sh
+        run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/run.sh
       - name: actionlint
         env:
           VERSION: 1.7.12
