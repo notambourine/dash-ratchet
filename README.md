@@ -45,7 +45,7 @@ permissions:
 
 jobs:
   dashes:
-    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@<sha> # v0.1.0
+    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@4ad5d35314782517511b8e5fc3b98d097499dc7c # v0.1.0
     with:
       exclude: |
         lib/db/migrations
@@ -71,7 +71,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: notambourine/dash-ratchet@<sha> # v0.1.0
+      - uses: notambourine/dash-ratchet@4ad5d35314782517511b8e5fc3b98d097499dc7c # v0.1.0
 ```
 
 ### Inputs
