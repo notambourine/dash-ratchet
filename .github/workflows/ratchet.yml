@@ -27,11 +27,13 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5 # slim terminates any job at 15
     steps:
-      # fetch-depth 0 is what puts origin/<base> in the clone; the gate needs
-      # it to diff and to count the before side.
+      # 2, not 0: this checks out refs/pull/N/merge, whose first parent is the
+      # base tip, so both sides of the diff and both trees to count are present
+      # with no history between them. Full history is a large download on any
+      # repo that ever held big binaries, and the grep itself takes a second.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           persist-credentials: false
       # job.workflow_sha is the ref the caller pinned THIS file to, so the
       # action code below always matches this workflow revision. Not on GHES.
