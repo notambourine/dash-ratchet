@@ -15,10 +15,8 @@
 # Usage: check-dashes.sh [base-ref]
 #
 # With no argument the base is resolved from the event. A pull_request checkout
-# takes refs/pull/N/merge, whose first parent IS the base tip, so `fetch-depth:
-# 2` carries both sides and none of the history between them. Cloning full
-# history to grep two trees was the whole cost of this job on a repo with large
-# binaries in its past.
+# takes refs/pull/N/merge, whose first parent IS the base tip, so `fetch-depth: 2`
+# carries both sides and none of the history between them.
 set -euo pipefail
 
 BASE="${1:-}"

@@ -20,10 +20,8 @@ inputs:
 runs:
   using: composite
   steps:
-    # Unset base-ref is the fast path: the script reads refs/pull/N/merge and
-    # takes HEAD^1, which a `fetch-depth: 2` checkout already carries. Setting
-    # base-ref names an ordinary branch instead, and that one needs the base
-    # fetched - fetch-depth 0, or a fetch of that branch.
+    # Empty base-ref resolves the base as HEAD^1 of the merge ref, which depth 2
+    # carries. A set base-ref names a branch the checkout must have fetched.
     - shell: bash
       env:
         BASE_REF: ${{ inputs.base-ref }}

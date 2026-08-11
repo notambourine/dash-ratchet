@@ -96,8 +96,8 @@ From a checkout of this repo, against any repo with a fetched base:
 scripts/check-dashes.sh origin/main
 ```
 
-`test/run.sh` runs the behavior suite: nine cases, each under the ambient
-locale and again under `LC_ALL=C`.
+`test/run.sh` runs the behavior suite, each case under the ambient locale and
+again under `LC_ALL=C`.
 
 ## Design notes
 
