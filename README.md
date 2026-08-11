@@ -5,8 +5,9 @@ assertions against the base branch:
 
 1. **No unicode dash on a line the PR adds.** This is the assertion a
    contributor reads and fixes, because it names the file and line.
-2. **The repo-wide dash total did not rise.** This is the backstop for edits
-   the diff cannot see, and it is the number that has to keep falling.
+2. **The repo-wide dash total did not rise.** This is the number that has to
+   keep falling. It lands on the run summary, so the checks page shows the
+   count without anyone expanding a job log.
 
 The gate is a ratchet, not a sweep. A repo with hundreds of existing dashes
 installs it today and pays the debt down as it touches files. The total only
@@ -109,6 +110,12 @@ again under `LC_ALL=C`.
 - **Why a ratchet.** A zero-tolerance grep only ever passes at a count of
   zero, so a repo with a backlog can never adopt it. The ratchet gates the
   diff and lets the backlog decay.
+- **What each assertion is for.** The added-line check is what turns the run
+  red in practice, and on a merge-ref checkout it sees the full net effect of
+  the merge, because the base tip is also the merge base there. The total is
+  the migration readout, and it catches the one thing a diff cannot show: a
+  stale branch reinstating dashes the base already removed. Counting is free
+  at `fetch-depth: 2`, which already holds both whole trees.
 - **Why depth 2.** A `pull_request` checkout takes `refs/pull/N/merge`, whose
   first parent is the base tip, so depth 2 holds both sides of the diff and
   both trees to count. Full history buys the gate nothing and costs whatever

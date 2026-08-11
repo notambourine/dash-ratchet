@@ -4,9 +4,14 @@
 #   1. No line the PR adds carries a unicode dash.
 #   2. The repo-wide total did not go up.
 #
-# (1) is the one a contributor reads and fixes, because it names the line. (2)
-# is the backstop for the edits (1) cannot see - a rename that rewrites content,
-# a delete-and-re-add - and it is the number that has to keep falling.
+# (1) is the one a contributor reads and fixes, because it names the line. On a
+# merge-ref checkout it already sees the whole net effect of the merge, since the
+# base tip IS the merge base there.
+#
+# (2) is the number that has to keep falling, and the one edit (1) cannot see is
+# a base that moved under it: a stale branch reinstating dashes the base already
+# removed shows up in no diff hunk. Both counts read trees the depth-2 clone
+# already holds, so (2) costs a grep, not a fetch.
 #
 # The banned character set, the marker (default `dash-ok`, override with
 # $DASH_MARKER), and the excluded trees ($DASH_EXCLUDE, one directory per line)
@@ -97,6 +102,20 @@ sign=""
 [ "$delta" -gt 0 ] && sign="+"
 echo
 echo "unicode dashes: ${BASE} ${before} -> HEAD ${after} (${sign}${delta})"
+
+# The job log is the one place nobody opens, so the count also goes to the run
+# summary, which renders on the checks page without expanding a step.
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+	{
+		echo "### Unicode dashes"
+		echo
+		echo "\`${BASE}\` ${before} to \`HEAD\` ${after} (**${sign}${delta}**)"
+		if [ "$delta" -gt 0 ]; then
+			echo
+			echo "The total rose. This count only ever goes down."
+		fi
+	} >>"$GITHUB_STEP_SUMMARY"
+fi
 
 if [ "$delta" -gt 0 ]; then
 	echo "::error::the unicode-dash total rose by ${delta} - this count only ever goes down"
