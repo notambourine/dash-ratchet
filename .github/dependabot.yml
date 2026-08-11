@@ -1,0 +1,12 @@
+# Covers the `uses:` pins only. The actionlint/zizmor curl downloads in ci.yml
+# (version + sha256) are outside Dependabot's reach and stay manual bumps.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      # fleet window from supply-chain.env; zizmor wants 7+
+      default-days: 2 # zizmor: ignore[dependabot-cooldown]
+      semver-major-days: 5
