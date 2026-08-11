@@ -28,11 +28,9 @@ never a moved tag. No floating `v0` major tag while 0.x.
 
 ## Main is locked
 
-PR-only (squash, zero approvals), force-push and deletion blocked on every
-branch, signed commits required, no bypass actors, merged branches
-auto-delete. That is why release.sh routes the README bump through a PR.
-GitHub refuses push rulesets on public repos, so there is no workflow fence;
-`.github/workflows/` edits ride the same PR gate as everything else.
+Every change lands through a squash-merged PR, the release README bump and
+`.github/workflows/` edits included. No approval is required, so a PR can be
+self-merged. Commits must be signed.
 
 ## Repo rules
 

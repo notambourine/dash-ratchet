@@ -9,8 +9,8 @@ assertions against the base branch:
    keep falling. It lands on the run summary, so the checks page shows the
    count without anyone expanding a job log.
 
-The gate is a ratchet, not a sweep. A repo with hundreds of existing dashes
-installs it today and pays the debt down as it touches files. The total only
+The gate is a ratchet, not a sweep. A repo with hundreds of existing dashes can
+adopt it immediately and pay the debt down as it touches files. The total only
 has to fall; it never has to reach zero.
 
 ## Banned set
@@ -81,11 +81,12 @@ the one branch yourself.
 
 ### Inputs
 
-Both entry points take the same inputs.
+The reusable workflow takes `exclude` and `marker`. The composite action takes
+those two plus `base-ref`.
 
 | Input      | Default                    | Meaning                                          |
 | ---------- | -------------------------- | ------------------------------------------------ |
-| `base-ref` | empty                      | Override the base branch, no `origin/` prefix. Empty resolves it from the event, which is what a shallow checkout needs. Composite action only; the reusable workflow always uses the PR base. |
+| `base-ref` | empty                      | Override the base branch, no `origin/` prefix. Empty resolves it from the event, which is what a shallow checkout needs. The reusable workflow always uses the PR base. |
 | `exclude`  | empty                      | Directories held out of the rule, one per line. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
 | `marker`   | `dash-ok`                  | A line that carries this marker keeps its dash.  |
 
@@ -108,35 +109,32 @@ again under `LC_ALL=C`.
   escape overflows 8-bit mode and git exits 128. The perl side matches raw
   UTF-8 bytes, so invalid encoding in a file can never abort a pass.
 - **Why a ratchet.** A zero-tolerance grep only ever passes at a count of
-  zero, so a repo with a backlog can never adopt it. The ratchet gates the
-  diff and lets the backlog decay.
-- **What each assertion is for.** The added-line check is what turns the run
-  red in practice, and on a merge-ref checkout it sees the full net effect of
-  the merge, because the base tip is also the merge base there. The total is
-  the migration readout, and it catches the one thing a diff cannot show: a
-  stale branch reinstating dashes the base already removed. Counting is free
-  at `fetch-depth: 2`, which already holds both whole trees.
+  zero, so a repo with a backlog can never adopt it. Gating the diff lets the
+  backlog decay instead.
+- **What each assertion is for.** The added-line check is what turns a run
+  red, and on a merge-ref checkout it sees the full net effect of the merge,
+  because the base tip is also the merge base there. The total is the
+  migration readout, and it catches the one thing a diff cannot show: a stale
+  branch reinstating dashes the base already removed.
 - **Why depth 2.** A `pull_request` checkout takes `refs/pull/N/merge`, whose
   first parent is the base tip, so depth 2 holds both sides of the diff and
-  both trees to count. Full history buys the gate nothing and costs whatever
-  the repo ever committed: on a 462MB repo whose past held 15MB images, the
-  checkout ran 20s at p50 and 298s at p95 while the grep took one second, and
-  a 5-minute job cap turned the tail into failed runs.
+  both whole trees to count. Full history buys the gate nothing and costs
+  whatever the repo ever committed, which on a large repo is most of the job's
+  wall clock and enough to hit the timeout.
 - **Why no auto-fix.** A dash usually marks a sentence that wants different
   punctuation: a colon, a comma pair, a parenthesis, a split. A gate that
   names the line lets a human make that call; a blind character swap makes
   it for them.
-- **One engine.** The character set, the marker, and the exclude handling
-  live in `scripts/lib/dash-set.sh`, read by `scripts/check-dashes.sh`.
-  Consumers reference this repo instead of vendoring the scripts, so a fix
-  such as the `(*UTF)` verb lands everywhere on the next pin bump.
+- **One engine.** Consumers reference this repo instead of vendoring the
+  scripts, so a fix such as the `(*UTF)` verb lands everywhere on the next pin
+  bump.
 
 ## Migrating from a vendored copy
 
 If a repo carries its own `scripts/check-dashes.sh` and
 `scripts/lib/dash-set.sh` from an earlier scaffold of this gate:
 
-1. Delete both scripts (and `scripts/lib/` if now empty).
+1. Delete both scripts, and `scripts/lib/` if that leaves it empty.
 2. Replace the body of `.github/workflows/dash-ratchet.yml` with the
    reusable-workflow call above, keeping the repo's own `branches:` list.
 3. Move any `DASH_EXCLUDE_DIRS` entries into the `exclude` input.
