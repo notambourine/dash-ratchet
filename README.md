@@ -1,16 +1,14 @@
 # dash-ratchet
 
-A diff-scoped CI gate for unicode dashes. On every pull request:
+A diff-scoped CI gate for unicode dashes. Each pull request must add no line
+carrying one, and the repo-wide total may only fall. A failure names the file
+and the line; the total lands on the run summary. The gate never swaps the
+character for you, because a dash usually marks a sentence that wants a colon,
+a comma pair, or a split.
 
-1. **No unicode dash on a line the PR adds.** The failure names the file and the
-   line. It never swaps the character for you, because a dash usually marks a
-   sentence that wants a colon, a comma pair, or a split.
-2. **The repo-wide dash total did not rise.** This one lands on the run summary,
-   so the checks page shows the count without anyone expanding a job log.
-
-A ratchet, not a sweep: a repo with hundreds of existing dashes can adopt it
-immediately and pay the debt down as it touches files. The total only has to
-fall, never to reach zero.
+A ratchet, not a sweep: a repo with hundreds of existing dashes adopts it
+immediately and pays the debt down as it touches files. Nothing has to reach
+zero.
 
 ## Banned set
 
@@ -78,9 +76,6 @@ and then fetch that branch yourself.
 scripts/check-dashes.sh origin/main   # any repo with a fetched base
 test/run.sh                           # behavior suite, both locales
 ```
-
-Replacing a vendored copy of these scripts: delete them, call the reusable
-workflow above, and move any `DASH_EXCLUDE_DIRS` entries into `exclude`.
 
 ## License
 
