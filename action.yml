@@ -7,8 +7,10 @@ branding:
   color: gray-dark
 inputs:
   base-ref:
-    description: Base branch to diff against, without the origin/ prefix.
-    default: ${{ github.base_ref }}
+    description: >-
+      Override the base branch, without the origin/ prefix. Leave empty to
+      resolve it from the event, which is what allows a shallow checkout.
+    default: ""
   exclude:
     description: Directories held out of the rule, one per line.
     default: ""
@@ -18,11 +20,16 @@ inputs:
 runs:
   using: composite
   steps:
-    # The caller's checkout must use fetch-depth 0: the gate diffs against
-    # origin/<base-ref> and counts dashes on that side too.
+    # Empty base-ref resolves the base as HEAD^1 of the merge ref, which depth 2
+    # carries. A set base-ref names a branch the checkout must have fetched.
     - shell: bash
       env:
         BASE_REF: ${{ inputs.base-ref }}
         DASH_EXCLUDE: ${{ inputs.exclude }}
         DASH_MARKER: ${{ inputs.marker }}
-      run: '"${GITHUB_ACTION_PATH}/scripts/check-dashes.sh" "origin/${BASE_REF}"'
+      run: |
+        if [ -n "${BASE_REF}" ]; then
+          "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh" "origin/${BASE_REF}"
+        else
+          "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh"
+        fi

@@ -64,8 +64,10 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
+      # Matches ratchet.yml on purpose: the depth consumers get is the depth
+      # this repo proves the gate against.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           persist-credentials: false
       - uses: ./

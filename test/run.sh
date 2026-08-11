@@ -36,10 +36,15 @@ commit_all() {
 }
 
 # run_case <name> <want-rc> <output-substring>: runs the gate in $REPO vs main.
+# $CHECK_REF, when set, is the GITHUB_REF the no-argument path resolves from.
 run_case() {
 	local name="$1" want_rc="$2" want_out="$3" out rc ok=1
 	cases=$((cases + 1))
-	out=$(cd "$REPO" && "$CHECK" main 2>&1)
+	if [ -n "${CHECK_REF:-}" ]; then
+		out=$(cd "$REPO" && GITHUB_REF="$CHECK_REF" "$CHECK" 2>&1)
+	else
+		out=$(cd "$REPO" && "$CHECK" main 2>&1)
+	fi
 	rc=$?
 	[ "$rc" -eq "$want_rc" ] || ok=0
 	case "$out" in *"$want_out"*) ;; *) ok=0 ;; esac
@@ -123,6 +128,32 @@ suite() {
 	echo "also clean" >"$REPO/b.txt"
 	commit_all head
 	run_case "zero-dash tree passes" 0 "main 0 -> HEAD 0 (0)"
+
+	# 8-9. a merge commit standing in for refs/pull/N/merge. No origin/<base>
+	# exists here, which is what a fetch-depth 2 clone looks like.
+	CHECK_REF=refs/pull/1/merge
+
+	new_repo mergeref
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf 'bad %s line\n' "$EM" >"$REPO/b.txt"
+	commit_all head
+	git -C "$REPO" checkout -q main
+	git -C "$REPO" merge -q --no-ff -m merge pr
+	run_case "merge ref resolves the base to HEAD^1" 1 "::error file=b.txt,line=1"
+
+	new_repo mergeref-clean
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	echo "also clean" >"$REPO/b.txt"
+	commit_all head
+	git -C "$REPO" checkout -q main
+	git -C "$REPO" merge -q --no-ff -m merge pr
+	run_case "clean merge ref passes" 0 "HEAD^1 0 -> HEAD 0 (0)"
+
+	unset CHECK_REF
 }
 
 suite

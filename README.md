@@ -58,8 +58,7 @@ The pinned commit is the one the `v0.1.0` tag points at. The job runs on
 
 For a repo that needs its own runner, extra steps, or GitHub Enterprise
 Server (where the reusable workflow's self-checkout context is unavailable).
-The checkout MUST use `fetch-depth: 0`: the gate diffs against
-`origin/<base>` and counts dashes on that side too.
+On a `pull_request` trigger with the default ref, `fetch-depth: 2` is enough.
 
 ```yaml
 jobs:
@@ -69,10 +68,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           persist-credentials: false
       - uses: notambourine/dash-ratchet@4ad5d35314782517511b8e5fc3b98d097499dc7c # v0.1.0
 ```
+
+Set `base-ref` only when the checkout is not the PR merge ref, such as a job
+that pins `ref:` to a commit or runs off `pull_request_target`. That names an
+ordinary branch, which has to be in the clone: use `fetch-depth: 0`, or fetch
+the one branch yourself.
 
 ### Inputs
 
@@ -80,7 +84,7 @@ Both entry points take the same inputs.
 
 | Input      | Default                    | Meaning                                          |
 | ---------- | -------------------------- | ------------------------------------------------ |
-| `base-ref` | `${{ github.base_ref }}`   | Base branch to diff against, no `origin/` prefix. Composite action only; the reusable workflow always uses the PR base. |
+| `base-ref` | empty                      | Override the base branch, no `origin/` prefix. Empty resolves it from the event, which is what a shallow checkout needs. Composite action only; the reusable workflow always uses the PR base. |
 | `exclude`  | empty                      | Directories held out of the rule, one per line. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
 | `marker`   | `dash-ok`                  | A line that carries this marker keeps its dash.  |
 
@@ -92,8 +96,8 @@ From a checkout of this repo, against any repo with a fetched base:
 scripts/check-dashes.sh origin/main
 ```
 
-`test/run.sh` runs the behavior suite: seven cases, each under the ambient
-locale and again under `LC_ALL=C`.
+`test/run.sh` runs the behavior suite, each case under the ambient locale and
+again under `LC_ALL=C`.
 
 ## Design notes
 
@@ -105,6 +109,12 @@ locale and again under `LC_ALL=C`.
 - **Why a ratchet.** A zero-tolerance grep only ever passes at a count of
   zero, so a repo with a backlog can never adopt it. The ratchet gates the
   diff and lets the backlog decay.
+- **Why depth 2.** A `pull_request` checkout takes `refs/pull/N/merge`, whose
+  first parent is the base tip, so depth 2 holds both sides of the diff and
+  both trees to count. Full history buys the gate nothing and costs whatever
+  the repo ever committed: on a 462MB repo whose past held 15MB images, the
+  checkout ran 20s at p50 and 298s at p95 while the grep took one second, and
+  a 5-minute job cap turned the tail into failed runs.
 - **Why no auto-fix.** A dash usually marks a sentence that wants different
   punctuation: a colon, a comma pair, a parenthesis, a split. A gate that
   names the line lets a human make that call; a blind character swap makes

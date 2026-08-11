@@ -13,16 +13,32 @@
 # all live in lib/dash-set.sh next to this script.
 #
 # Usage: check-dashes.sh [base-ref]
+#
+# With no argument the base is resolved from the event. A pull_request checkout
+# takes refs/pull/N/merge, whose first parent IS the base tip, so `fetch-depth: 2`
+# carries both sides and none of the history between them.
 set -euo pipefail
 
-BASE="${1:-origin/main}"
+BASE="${1:-}"
+if [ -z "$BASE" ]; then
+	# GITHUB_REF, not a parent count: a PR whose own head commit is a merge also
+	# has two parents, and there HEAD^1 is not the base.
+	case "${GITHUB_REF:-}" in
+	refs/pull/*/merge) BASE="HEAD^1" ;;
+	*) BASE="origin/${GITHUB_BASE_REF:-main}" ;;
+	esac
+fi
 
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib/dash-set.sh
 source "$(dirname "$0")/lib/dash-set.sh"
 
 git rev-parse --verify --quiet "$BASE" >/dev/null || {
-	echo "::error::base ref '${BASE}' is not fetched - check the workflow's fetch-depth"
+	if [ "$BASE" = "HEAD^1" ]; then
+		echo "::error::the merge ref has no first parent - checkout needs fetch-depth 2 or more"
+	else
+		echo "::error::base ref '${BASE}' is not fetched - check the workflow's fetch-depth"
+	fi
 	exit 1
 }
 
