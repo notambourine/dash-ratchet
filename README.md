@@ -40,13 +40,13 @@ permissions:
 
 jobs:
   dashes:
-    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@4ad5d35314782517511b8e5fc3b98d097499dc7c # v0.1.0
+    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@29c4bb09a6041cc859b436f2388e8b862dd13171 # v0.2.0
     with:
       exclude: |
         lib/db/migrations
 ```
 
-The pinned commit is the one the `v0.1.0` tag points at.
+The pinned commit is the one the `v0.2.0` tag points at.
 
 ### Inputs
 
@@ -68,7 +68,7 @@ and then fetch that branch yourself.
   with:
     fetch-depth: 2
     persist-credentials: false
-- uses: notambourine/dash-ratchet@4ad5d35314782517511b8e5fc3b98d097499dc7c # v0.1.0
+- uses: notambourine/dash-ratchet@29c4bb09a6041cc859b436f2388e8b862dd13171 # v0.2.0
 ```
 
 ## Local run
