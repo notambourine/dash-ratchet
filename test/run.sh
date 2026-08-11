@@ -154,6 +154,25 @@ suite() {
 	run_case "clean merge ref passes" 0 "HEAD^1 0 -> HEAD 0 (0)"
 
 	unset CHECK_REF
+
+	# 10. the count reaches the run summary, not just the job log
+	new_repo summary
+	printf 'two %s %s here\n' "$EM" "$EM" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	echo "cleaned" >"$REPO/a.txt"
+	commit_all head
+	GITHUB_STEP_SUMMARY="$TMP/${LOCALE_TAG}-summary.md"
+	export GITHUB_STEP_SUMMARY
+	run_case "count reaches the job log" 0 "main 2 -> HEAD 0 (-2)"
+	cases=$((cases + 1))
+	if grep -q '(\*\*-2\*\*)' "$GITHUB_STEP_SUMMARY" 2>/dev/null; then
+		echo "ok   ${LOCALE_TAG}: count reaches the run summary"
+	else
+		fails=$((fails + 1))
+		echo "FAIL ${LOCALE_TAG}: count reaches the run summary (${GITHUB_STEP_SUMMARY})"
+	fi
+	unset GITHUB_STEP_SUMMARY
 }
 
 suite
