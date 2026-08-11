@@ -13,9 +13,10 @@ zero.
 ## Banned set
 
 U+2010 through U+2015 (hyphen, non-breaking hyphen, figure dash, en dash,
-em dash, horizontal bar), U+2212 (minus sign), and `&mdash;` / `&ndash;` /
-`&minus;`. Each folds to a plain ASCII hyphen. A line that must keep its
-character carries the marker `dash-ok` anywhere on the line. <!-- dash-ok -->
+em dash, horizontal bar), U+2212 (minus sign), and the HTML entities
+`&mdash;`, `&ndash;`, `&minus;`. Each folds to a plain ASCII hyphen. <!-- dash-ok -->
+A line that must keep its character carries the marker `dash-ok` anywhere on
+the line.
 
 ## Usage
 
