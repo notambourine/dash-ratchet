@@ -35,8 +35,10 @@ self-merged. Commits must be signed.
 ## Repo rules
 
 - No literal unicode dash lands in this tree; the dogfood CI job gates it.
-  Test fixtures build dashes from byte escapes at runtime. A line that must
-  carry one takes the `emdash-ok` marker.
+  There is no per-line opt-out, and the opt-out marker is itself banned, so
+  nothing in this tree may spell it either. Build a needed dash or HTML dash
+  entity from pieces at runtime, the way `test/run.sh` and `lib/dash-set.sh`
+  do, or hold the path out through `DASH_EXCLUDE`.
 - Everything runs on `ubuntu-slim`: bash, git, perl, curl only, no UTF-8
   locale (the reason for `(*UTF)` in `scripts/lib/dash-set.sh`), 15-minute
   hard kill.
