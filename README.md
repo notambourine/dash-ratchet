@@ -13,10 +13,13 @@ zero.
 ## Banned set
 
 U+2010 through U+2015 (hyphen, non-breaking hyphen, figure dash, en dash,
-em dash, horizontal bar), U+2212 (minus sign), and the HTML entities
-`&mdash;`, `&ndash;`, `&minus;`. Each folds to a plain ASCII hyphen. <!-- dash-ok -->
-A line that must keep its character carries the marker `dash-ok` anywhere on
-the line.
+em dash, horizontal bar), U+2212 (minus sign), and the HTML entities named
+`mdash`, `ndash`, and `minus`. Each folds to a plain ASCII hyphen.
+
+There is no per-line opt-out. Writing the old marker (`dash-` followed by `ok`)
+on an added line is itself a failure, because a marker that suppresses nothing
+still reads as permission to the next author. The gate cannot spell it in its
+own source either. A path whose bytes are not yours to edit goes in `exclude`.
 
 ## Usage
 
@@ -52,8 +55,7 @@ The pinned commit is the one the `v0.2.0` tag points at.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `exclude` | empty | Directories held out of the rule, one per line. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
-| `marker` | `dash-ok` | A line that carries this marker keeps its dash. |
+| `exclude` | empty | Paths held out of the rule, one git pathspec per line. Globs work, so `*.json` and `test/fixtures/*.csv` are both valid. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
 | `base-ref` | empty | Composite action only. Override the base branch, without the `origin/` prefix; empty resolves it from the event. |
 
 ### Composite action
@@ -75,8 +77,23 @@ and then fetch that branch yourself.
 
 ```bash
 scripts/check-dashes.sh origin/main   # any repo with a fetched base
+scripts/check-dashes.sh --staged      # HEAD against the index, no ref needed
 test/run.sh                           # behavior suite, both locales
 ```
+
+## Pre-commit hook
+
+`--staged` runs the same three assertions against the index instead of a ref, so
+it needs no base branch and no network. Point a hook at a checkout of this repo:
+
+```bash
+# .git/hooks/pre-commit
+exec /path/to/dash-ratchet/scripts/check-dashes.sh --staged
+```
+
+Local only. `--no-verify` skips it, a fresh clone never had it, and no other
+contributor is running it, so the workflow stays the gate. The hook only makes
+the feedback arrive sooner for whoever installed it.
 
 ## License
 

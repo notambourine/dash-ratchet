@@ -14,9 +14,6 @@ inputs:
   exclude:
     description: Directories held out of the rule, one per line.
     default: ""
-  marker:
-    description: A line that carries this marker keeps its dash.
-    default: dash-ok
 runs:
   using: composite
   steps:
@@ -26,7 +23,6 @@ runs:
       env:
         BASE_REF: ${{ inputs.base-ref }}
         DASH_EXCLUDE: ${{ inputs.exclude }}
-        DASH_MARKER: ${{ inputs.marker }}
       run: |
         if [ -n "${BASE_REF}" ]; then
           "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh" "origin/${BASE_REF}"

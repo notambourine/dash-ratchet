@@ -21,9 +21,9 @@ export DASH_BYTES='\xe2\x80[\x90-\x95]|\xe2\x88\x92|&(?:mdash|ndash|minus);'
 # shellcheck disable=SC2034  # out-param: read by the sourcing script
 DASH_PCRE=(-e '(*UTF)[\x{2010}-\x{2015}\x{2212}]' -e '&(?:mdash|ndash|minus);')
 
-# A line carrying this marker keeps its dash - the gate skips it. For characters
-# the code or the copy genuinely needs: a verbatim quote, a real minus sign.
-export DASH_MARKER="${DASH_MARKER:-dash-ok}"
+# Banned too: the per-line opt-out marker. The class around `o` keeps this file
+# from matching itself, and the short spelling is a substring of the longer ones.
+export DASH_MARKER_BYTES='dash-[o]k'
 
 # Trees outside the rule, one directory per line of $DASH_EXCLUDE - for bytes not
 # yours to edit (captured wire fixtures, append-only migration history).

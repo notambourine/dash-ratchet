@@ -11,10 +11,6 @@ on:
         description: Directories held out of the rule, one per line.
         type: string
         default: ""
-      marker:
-        description: A line that carries this marker keeps its dash.
-        type: string
-        default: dash-ok
 
 permissions:
   contents: read
@@ -44,4 +40,3 @@ jobs:
       - uses: ./.dash-ratchet
         with:
           exclude: ${{ inputs.exclude }}
-          marker: ${{ inputs.marker }}

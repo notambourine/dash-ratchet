@@ -12,6 +12,10 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHECK="$ROOT/scripts/check-dashes.sh"
 EM="$(printf '\xe2\x80\x94')"
+# Both fixtures are assembled here for the same reason: a literal em dash, HTML
+# dash entity, or opt-out marker in this file would trip the repo's own gate.
+ENTITY="$(printf '&%s;' mdash)"
+MARKER="$(printf 'dash-%sk' o)"
 
 # Hermetic git: the user's config (signing, hooks, templates) must not leak in.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -36,11 +40,13 @@ commit_all() {
 }
 
 # run_case <name> <want-rc> <output-substring>: runs the gate in $REPO vs main.
-# $CHECK_REF, when set, is the GITHUB_REF the no-argument path resolves from.
+# $CHECK_ARG overrides the argument; $CHECK_REF sets the GITHUB_REF instead.
 run_case() {
 	local name="$1" want_rc="$2" want_out="$3" out rc ok=1
 	cases=$((cases + 1))
-	if [ -n "${CHECK_REF:-}" ]; then
+	if [ -n "${CHECK_ARG:-}" ]; then
+		out=$(cd "$REPO" && "$CHECK" "$CHECK_ARG" 2>&1)
+	elif [ -n "${CHECK_REF:-}" ]; then
 		out=$(cd "$REPO" && GITHUB_REF="$CHECK_REF" "$CHECK" 2>&1)
 	else
 		out=$(cd "$REPO" && "$CHECK" main 2>&1)
@@ -67,14 +73,22 @@ suite() {
 	commit_all head
 	run_case "added dash fails, names the line" 1 "::error file=b.txt,line=1"
 
-	# 2. the marker keeps a load-bearing dash
+	# 2. the opt-out marker is banned, dash or no dash on the line
 	new_repo marker
 	echo "clean" >"$REPO/a.txt"
 	commit_all base
 	git -C "$REPO" checkout -qb pr
-	printf 'kept %s line dash-ok\n' "$EM" >"$REPO/b.txt"
+	printf 'kept %s line %s\n' "$EM" "$MARKER" >"$REPO/b.txt"
 	commit_all head
-	run_case "marker line passes" 0 "main 0 -> HEAD 0 (0)"
+	run_case "marker line fails" 1 "marker no longer suppresses"
+
+	new_repo marker-alone
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf 'no dash here %s\n' "$MARKER" >"$REPO/b.txt"
+	commit_all head
+	run_case "bare marker fails with a zero count" 1 "marker no longer suppresses"
 
 	# 3. a rise the diff cannot see: base cleaned its dashes after the branch
 	# point, so only the repo-wide backstop can catch the stale head.
@@ -116,7 +130,7 @@ suite() {
 	echo "clean" >"$REPO/a.txt"
 	commit_all base
 	git -C "$REPO" checkout -qb pr
-	echo "an &mdash; entity" >"$REPO/b.txt" # dash-ok: the marker rides THIS line, not the fixture
+	printf 'an %s entity\n' "$ENTITY" >"$REPO/b.txt"
 	commit_all head
 	run_case "html entity fails" 1 "::error file=b.txt,line=1"
 
@@ -155,7 +169,41 @@ suite() {
 
 	unset CHECK_REF
 
-	# 10. the count reaches the run summary, not just the job log
+	# 10-12. --staged reads the index, so a dash fails before the commit exists
+	CHECK_ARG=--staged
+
+	new_repo staged
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	printf 'bad %s line\n' "$EM" >"$REPO/b.txt"
+	git -C "$REPO" add -A
+	run_case "staged dash fails" 1 "HEAD 0 -> index 1 (+1)"
+
+	new_repo staged-clean
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	echo "also clean" >"$REPO/b.txt"
+	git -C "$REPO" add -A
+	run_case "staged clean tree passes" 0 "HEAD 0 -> index 0 (0)"
+
+	# No HEAD to diff against, so the empty tree stands in for it.
+	new_repo staged-root
+	printf 'bad %s line\n' "$EM" >"$REPO/a.txt"
+	git -C "$REPO" add -A
+	run_case "staged root commit fails" 1 "empty tree 0 -> index 1 (+1)"
+
+	# An unstaged dash is not this commit's problem.
+	new_repo staged-unstaged
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	echo "staged and clean" >"$REPO/b.txt"
+	git -C "$REPO" add -A
+	printf 'bad %s line\n' "$EM" >"$REPO/c.txt"
+	run_case "unstaged dash is ignored" 0 "HEAD 0 -> index 0 (0)"
+
+	unset CHECK_ARG
+
+	# 13. the count reaches the run summary, not just the job log
 	new_repo summary
 	printf 'two %s %s here\n' "$EM" "$EM" >"$REPO/a.txt"
 	commit_all base
