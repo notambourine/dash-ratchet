@@ -102,13 +102,15 @@ count_tree() {
 # report <kind> <findings>: prints the human list, then one annotation per line
 # when a workflow is reading. `kind` is the headline the contributor acts on.
 report() {
-	local kind="$1" findings="$2"
+	local kind="$1" findings="$2" title
 	case "$kind" in
 	dash)
+		title="Unicode dash"
 		echo "Unicode dashes on added lines. Type an ASCII hyphen instead, or hold the"
 		echo "path out of the rule with the exclude input."
 		;;
 	marker)
+		title="Opt-out marker"
 		echo "The dash-o""k marker no longer suppresses anything and is banned itself."
 		echo "Fix the dash on the line, or hold the path out with the exclude input."
 		;;
@@ -117,7 +119,7 @@ report() {
 	printf '%s\n' "$findings"
 	[ "$STAGED" -eq 1 ] && return 0
 	printf '%s\n' "$findings" | while IFS=: read -r file line text; do
-		echo "::error file=${file},line=${line},title=Unicode dash::${text}"
+		echo "::error file=${file},line=${line},title=${title}::${text}"
 	done
 }
 
@@ -140,8 +142,10 @@ found=$(
 			if (/^\@\@ .*? \+(\d+)/) { $line = $1; next }
 			next unless /^\+/;
 			my $text = substr($_, 1);
-			printf("dash\t%s:%d:%s", $file, $line, $text) if $text =~ $re;
-			printf("marker\t%s:%d:%s", $file, $line, $text) if $text =~ $mre;
+			# A line can hit both. The marker text also asks for the dash, so it wins:
+			# naming the dash alone leaves the marker to fail the next run.
+			if ($text =~ $mre) { printf("marker\t%s:%d:%s", $file, $line, $text) }
+			elsif ($text =~ $re) { printf("dash\t%s:%d:%s", $file, $line, $text) }
 			$line++;
 		'
 )
