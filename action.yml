@@ -16,7 +16,7 @@ inputs:
     default: ""
   marker:
     description: A line that carries this marker keeps its dash.
-    default: dash-ok
+    default: emdash-ok
 runs:
   using: composite
   steps:

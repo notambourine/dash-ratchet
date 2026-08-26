@@ -72,7 +72,7 @@ suite() {
 	echo "clean" >"$REPO/a.txt"
 	commit_all base
 	git -C "$REPO" checkout -qb pr
-	printf 'kept %s line dash-ok\n' "$EM" >"$REPO/b.txt"
+	printf 'kept %s line emdash-ok\n' "$EM" >"$REPO/b.txt"
 	commit_all head
 	run_case "marker line passes" 0 "main 0 -> HEAD 0 (0)"
 
@@ -116,7 +116,7 @@ suite() {
 	echo "clean" >"$REPO/a.txt"
 	commit_all base
 	git -C "$REPO" checkout -qb pr
-	echo "an &mdash; entity" >"$REPO/b.txt" # dash-ok: the marker rides THIS line, not the fixture
+	echo "an &mdash; entity" >"$REPO/b.txt" # emdash-ok: the marker rides THIS line, not the fixture
 	commit_all head
 	run_case "html entity fails" 1 "::error file=b.txt,line=1"
 

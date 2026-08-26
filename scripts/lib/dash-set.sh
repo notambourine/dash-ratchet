@@ -23,7 +23,7 @@ DASH_PCRE=(-e '(*UTF)[\x{2010}-\x{2015}\x{2212}]' -e '&(?:mdash|ndash|minus);')
 
 # A line carrying this marker keeps its dash - the gate skips it. For characters
 # the code or the copy genuinely needs: a verbatim quote, a real minus sign.
-export DASH_MARKER="${DASH_MARKER:-dash-ok}"
+export DASH_MARKER="${DASH_MARKER:-emdash-ok}"
 
 # Trees outside the rule, one directory per line of $DASH_EXCLUDE - for bytes not
 # yours to edit (captured wire fixtures, append-only migration history).

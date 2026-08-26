@@ -36,7 +36,7 @@ self-merged. Commits must be signed.
 
 - No literal unicode dash lands in this tree; the dogfood CI job gates it.
   Test fixtures build dashes from byte escapes at runtime. A line that must
-  carry one takes the `dash-ok` marker.
+  carry one takes the `emdash-ok` marker.
 - Everything runs on `ubuntu-slim`: bash, git, perl, curl only, no UTF-8
   locale (the reason for `(*UTF)` in `scripts/lib/dash-set.sh`), 15-minute
   hard kill.

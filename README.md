@@ -14,8 +14,8 @@ zero.
 
 U+2010 through U+2015 (hyphen, non-breaking hyphen, figure dash, en dash,
 em dash, horizontal bar), U+2212 (minus sign), and the HTML entities
-`&mdash;`, `&ndash;`, `&minus;`. Each folds to a plain ASCII hyphen. <!-- dash-ok -->
-A line that must keep its character carries the marker `dash-ok` anywhere on
+`&mdash;`, `&ndash;`, `&minus;`. Each folds to a plain ASCII hyphen. <!-- emdash-ok -->
+A line that must keep its character carries the marker `emdash-ok` anywhere on
 the line.
 
 ## Usage
@@ -53,7 +53,7 @@ The pinned commit is the one the `v0.2.0` tag points at.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `exclude` | empty | Directories held out of the rule, one per line. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
-| `marker` | `dash-ok` | A line that carries this marker keeps its dash. |
+| `marker` | `emdash-ok` | A line that carries this marker keeps its dash. |
 | `base-ref` | empty | Composite action only. Override the base branch, without the `origin/` prefix; empty resolves it from the event. |
 
 ### Composite action

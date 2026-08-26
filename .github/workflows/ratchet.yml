@@ -14,7 +14,7 @@ on:
       marker:
         description: A line that carries this marker keeps its dash.
         type: string
-        default: dash-ok
+        default: emdash-ok
 
 permissions:
   contents: read

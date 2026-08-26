@@ -13,7 +13,7 @@
 # removed shows up in no diff hunk. Both counts read trees the depth-2 clone
 # already holds, so (2) costs a grep, not a fetch.
 #
-# The banned character set, the marker (default `dash-ok`, override with
+# The banned character set, the marker (default `emdash-ok`, override with
 # $DASH_MARKER), and the excluded trees ($DASH_EXCLUDE, one directory per line)
 # all live in lib/dash-set.sh next to this script.
 #
