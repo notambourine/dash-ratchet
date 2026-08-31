@@ -7,9 +7,9 @@ updates:
     schedule:
       interval: monthly
     cooldown:
-      # fleet window from supply-chain.env; zizmor wants 7+
+      # fleet window from supply-chain.env; zizmor wants 7+. The per-bump
+      # semver-*-days keys are rejected for github-actions, so only this one.
       default-days: 2 # zizmor: ignore[dependabot-cooldown]
-      semver-major-days: 5
     groups:
       actions:
         applies-to: version-updates
