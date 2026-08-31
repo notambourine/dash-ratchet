@@ -11,6 +11,14 @@ It verifies CI is green on the exact tip, tags `v<version>`, publishes
 generated release notes, then re-pins the README examples to the tag commit
 through a squash-merged PR.
 
+A release that adds or changes an input ships upgrade instructions through
+`RELEASE_NOTES_PREFIX=<file>`, which prepends that file to the generated notes.
+Dependabot quotes the release body verbatim into every consumer's bump PR, so
+the prefix is the one channel that reaches a repo pinned to an older SHA. Keep
+the file untracked (a tracked one goes stale the next release) and keep it
+short and front-loaded: consumers read it inside a collapsed `Release notes`
+section that Dependabot truncates when a grouped PR stacks many updates.
+
 The bump map - where versions and SHAs live:
 
 - `README.md` usage pins (two `@<sha> # v<version>` lines plus one prose
@@ -38,7 +46,9 @@ self-merged. Commits must be signed.
   There is no per-line opt-out, and the opt-out marker is itself banned, so
   nothing in this tree may spell it either. Build a needed dash or HTML dash
   entity from pieces at runtime, the way `test/run.sh` and `lib/dash-set.sh`
-  do, or hold the path out through `DASH_EXCLUDE`.
+  do, or hold the path out through `DASH_EXCLUDE`. The dogfood job runs with
+  `exclude-defaults: "false"`, so the built-in hold-out list buys this tree
+  nothing: its own `CLAUDE.md` and `LICENSE` are gated like everything else.
 - Everything runs on `ubuntu-slim`: bash, git, perl, curl only, no UTF-8
   locale (the reason for `(*UTF)` in `scripts/lib/dash-set.sh`), 15-minute
   hard kill.

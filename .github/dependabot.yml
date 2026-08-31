@@ -10,3 +10,18 @@ updates:
       # fleet window from supply-chain.env; zizmor wants 7+
       default-days: 2 # zizmor: ignore[dependabot-cooldown]
       semver-major-days: 5
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      # A groups: block defaults to version-updates, so without this one every
+      # advisory opens its own branch.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    # majors match no group -> individual PRs

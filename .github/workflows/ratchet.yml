@@ -8,9 +8,21 @@ on:
   workflow_call:
     inputs:
       exclude:
-        description: Directories held out of the rule, one per line.
+        description: Paths held out of the rule, one git pathspec per line.
         type: string
         default: ""
+      force-zero:
+        description: >-
+          Require zero dashes in the checkout instead of ratcheting a count
+          down. Drops the checkout to depth 1.
+        type: boolean
+        default: false
+      exclude-defaults:
+        description: >-
+          Apply the built-in hold-out list (lockfiles, vendored trees, agent
+          context, upstream licenses). Set false to gate those paths too.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -25,9 +37,10 @@ jobs:
     steps:
       # 2, not 0: HEAD is refs/pull/N/merge and HEAD^1 is the base tip, so
       # depth 2 carries both sides of the diff and both trees to count.
+      # force-zero reads one tree and no diff, so it needs only depth 1.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: ${{ inputs.force-zero && 1 || 2 }}
           persist-credentials: false
       # job.workflow_sha is the ref the caller pinned THIS file to, so the
       # action code below always matches this workflow revision. Not on GHES.
@@ -40,3 +53,5 @@ jobs:
       - uses: ./.dash-ratchet
         with:
           exclude: ${{ inputs.exclude }}
+          exclude-defaults: ${{ inputs.exclude-defaults }}
+          force-zero: ${{ inputs.force-zero }}

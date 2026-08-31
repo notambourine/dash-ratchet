@@ -9,6 +9,10 @@
 # resolves itself (the reusable workflow via job.workflow_sha).
 #
 # Usage: scripts/release.sh <version>     e.g. scripts/release.sh 0.2.0
+#
+# RELEASE_NOTES_PREFIX=<file> prepends that file to the generated notes. Keep it
+# untracked and short: consumers read it inside a collapsed, truncatable
+# Dependabot section, so upgrade instructions go first or not at all.
 set -euo pipefail
 
 V="${1:?usage: scripts/release.sh <version, no leading v>}"
@@ -16,6 +20,14 @@ case "$V" in
 v*) echo "version without the leading v: ${V}" >&2; exit 1 ;;
 esac
 TAG="v${V}"
+
+# Checked before the tag, which is immutable: a bad path here would burn a version.
+NOTES=(--generate-notes)
+if [ -n "${RELEASE_NOTES_PREFIX:-}" ]; then
+	[ -f "$RELEASE_NOTES_PREFIX" ] ||
+		{ echo "RELEASE_NOTES_PREFIX is not a file: ${RELEASE_NOTES_PREFIX}" >&2; exit 1; }
+	NOTES+=(--notes-file "$RELEASE_NOTES_PREFIX")
+fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
 	echo "dirty tree" >&2
@@ -35,7 +47,7 @@ CONC=$(gh run list --commit "$SHA" --workflow CI --json conclusion \
 
 git tag -a "$TAG" -m "dash-ratchet ${V}" "$SHA"
 git push origin "$TAG"
-gh release create "$TAG" --verify-tag --generate-notes
+gh release create "$TAG" --verify-tag "${NOTES[@]}"
 
 BUMP="release/readme-${TAG}"
 git checkout -qb "$BUMP"

@@ -21,6 +21,25 @@ on an added line is itself a failure, because a marker that suppresses nothing
 still reads as permission to the next author. The gate cannot spell it in its
 own source either. A path whose bytes are not yours to edit goes in `exclude`.
 
+## Held out by default
+
+A package manager's, an agent's, or an upstream author's bytes: nothing a
+consumer reads and nothing anyone retypes by hand. A lockfile carrying an em
+dash in an upstream deprecation notice is the case that drove the list.
+
+```
+**/node_modules/**   **/*.lock              **/CHANGELOG.md
+**/vendor/**         **/package-lock.json   **/LICENSE*
+**/.claude/**        **/npm-shrinkwrap.json **/CLAUDE.md
+**/.cursor/**        **/pnpm-lock.yaml      **/AGENTS.md
+                     **/bun.lockb
+                     **/go.sum
+```
+
+`exclude-defaults: false` drops the whole list and gates those paths like any
+other, which is what this repo does to itself. `exclude` adds to the list; it
+never replaces it.
+
 ## Usage
 
 One file in the consuming repo. The runner tier, the checkout, and the timeout
@@ -55,15 +74,32 @@ The pinned commit is the one the `v0.2.0` tag points at.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `exclude` | empty | Paths held out of the rule, one git pathspec per line. Globs work, so `*.json` and `test/fixtures/*.csv` are both valid. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
+| `exclude` | empty | Paths held out of the rule on top of the built-in list, one git pathspec per line. Globs work, so `*.json` and `test/fixtures/*.csv` are both valid. For bytes that are not yours to edit: captured wire fixtures, append-only migration history. |
+| `exclude-defaults` | `true` | Apply the built-in hold-out list above. `false` gates those paths too. |
+| `force-zero` | `false` | Require zero dashes in the checkout instead of ratcheting a count down. See below. |
 | `base-ref` | empty | Composite action only. Override the base branch, without the `origin/` prefix; empty resolves it from the event. |
+
+### Force zero
+
+A repo already at zero has nothing to ratchet, so `force-zero: true` swaps the
+three assertions for one: this tree carries no dash and no marker.
+
+```yaml
+    with:
+      force-zero: true
+```
+
+One grep over one tree. No base ref, no diff, no second count, so the checkout
+drops to `fetch-depth: 1` (the reusable workflow does that for you) and a dash
+nobody's PR touched still fails. Take it once the ratchet reads 0 and the number
+has stopped being interesting.
 
 ### Composite action
 
 For a repo that needs its own runner, extra steps, or GitHub Enterprise Server.
 `fetch-depth: 2` is the floor, since the gate diffs against the merge ref's
-first parent. Set `base-ref` only when the checkout is not the PR merge ref,
-and then fetch that branch yourself.
+first parent, and `1` is enough under `force-zero`. Set `base-ref` only when the
+checkout is not the PR merge ref, and then fetch that branch yourself.
 
 ```yaml
 - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,6 +114,7 @@ and then fetch that branch yourself.
 ```bash
 scripts/check-dashes.sh origin/main   # any repo with a fetched base
 scripts/check-dashes.sh --staged      # HEAD against the index, no ref needed
+scripts/check-dashes.sh --force-zero  # whole tree must carry none, no base ref
 test/run.sh                           # behavior suite, both locales
 ```
 

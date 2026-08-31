@@ -12,8 +12,18 @@ inputs:
       resolve it from the event, which is what allows a shallow checkout.
     default: ""
   exclude:
-    description: Directories held out of the rule, one per line.
+    description: Paths held out of the rule, one git pathspec per line.
     default: ""
+  force-zero:
+    description: >-
+      Require zero dashes in the checkout instead of ratcheting a count down.
+      No base ref and no second tree, so a depth-1 checkout is enough.
+    default: "false"
+  exclude-defaults:
+    description: >-
+      Apply the built-in hold-out list (lockfiles, vendored trees, agent
+      context, upstream licenses). Set false to gate those paths too.
+    default: "true"
 runs:
   using: composite
   steps:
@@ -23,9 +33,13 @@ runs:
       env:
         BASE_REF: ${{ inputs.base-ref }}
         DASH_EXCLUDE: ${{ inputs.exclude }}
+        DASH_EXCLUDE_DEFAULTS: ${{ inputs.exclude-defaults }}
+        FORCE_ZERO: ${{ inputs.force-zero }}
       run: |
-        if [ -n "${BASE_REF}" ]; then
-          "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh" "origin/${BASE_REF}"
-        else
-          "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh"
+        ARGS=()
+        if [ "${FORCE_ZERO}" = "true" ]; then
+          ARGS+=(--force-zero)
+        elif [ -n "${BASE_REF}" ]; then
+          ARGS+=("origin/${BASE_REF}")
         fi
+        "${GITHUB_ACTION_PATH}/scripts/check-dashes.sh" "${ARGS[@]}"

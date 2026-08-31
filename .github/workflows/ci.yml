@@ -70,4 +70,13 @@ jobs:
         with:
           fetch-depth: 2
           persist-credentials: false
+      # No hold-outs here: this tree's rule covers its own CLAUDE.md and LICENSE,
+      # and turning the list off is the only place the switch gets exercised.
       - uses: ./
+        with:
+          exclude-defaults: "false"
+      # A depth-2 checkout satisfies force-zero too, so both modes run here.
+      - uses: ./
+        with:
+          exclude-defaults: "false"
+          force-zero: "true"

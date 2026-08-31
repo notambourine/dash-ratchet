@@ -125,6 +125,23 @@ suite() {
 	run_case "excluded dir is ignored" 0 "main 0 -> HEAD 0 (0)"
 	unset DASH_EXCLUDE
 
+	# 5b. the built-in hold-out list, on by default and off on request. A
+	# lockfile at depth and an agent file at the root cover both glob shapes.
+	new_repo defaults
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	mkdir -p "$REPO/web"
+	printf 'dep %s note\n' "$EM" >"$REPO/web/package-lock.json"
+	printf 'agent %s note\n' "$EM" >"$REPO/CLAUDE.md"
+	commit_all head
+	run_case "default hold-outs are ignored" 0 "main 0 -> HEAD 0 (0)"
+	export DASH_EXCLUDE_DEFAULTS=false
+	run_case "exclude-defaults false gates them" 1 "::error file=CLAUDE.md,line=1"
+	export DASH_EXCLUDE_DEFAULTS=maybe
+	run_case "a non-boolean is a hard error" 1 "takes true or false"
+	unset DASH_EXCLUDE_DEFAULTS
+
 	# 6. HTML dash entities are part of the banned set
 	new_repo entity
 	echo "clean" >"$REPO/a.txt"
@@ -203,7 +220,34 @@ suite() {
 
 	unset CHECK_ARG
 
-	# 13. the count reaches the run summary, not just the job log
+	# 13-16. --force-zero: one tree, no base, so a single-commit repo with no
+	# remote is the shape a depth-1 checkout gives the gate.
+	CHECK_ARG=--force-zero
+
+	new_repo zero-clean
+	echo "clean" >"$REPO/a.txt"
+	commit_all base
+	run_case "force-zero passes with no base ref at all" 0 "working tree 0, and this gate requires 0"
+
+	new_repo zero-dash
+	printf 'bad %s line\n' "$EM" >"$REPO/a.txt"
+	commit_all base
+	run_case "force-zero names an untouched dash" 1 "::error file=a.txt,line=1"
+
+	new_repo zero-marker
+	printf 'no dash here %s\n' "$MARKER" >"$REPO/a.txt"
+	commit_all base
+	run_case "force-zero fails on the marker" 1 "marker no longer suppresses"
+
+	new_repo zero-held-out
+	mkdir "$REPO/web"
+	printf 'dep %s note\n' "$EM" >"$REPO/web/package-lock.json"
+	commit_all base
+	run_case "force-zero honors the hold-out list" 0 "working tree 0"
+
+	unset CHECK_ARG
+
+	# 17. the count reaches the run summary, not just the job log
 	new_repo summary
 	printf 'two %s %s here\n' "$EM" "$EM" >"$REPO/a.txt"
 	commit_all base
