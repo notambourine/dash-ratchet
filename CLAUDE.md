@@ -11,6 +11,14 @@ It verifies CI is green on the exact tip, tags `v<version>`, publishes
 generated release notes, then re-pins the README examples to the tag commit
 through a squash-merged PR.
 
+A release that adds or changes an input ships upgrade instructions through
+`RELEASE_NOTES_PREFIX=<file>`, which prepends that file to the generated notes.
+Dependabot quotes the release body verbatim into every consumer's bump PR, so
+the prefix is the one channel that reaches a repo pinned to an older SHA. Keep
+the file untracked (a tracked one goes stale the next release) and keep it
+short and front-loaded: consumers read it inside a collapsed `Release notes`
+section that Dependabot truncates when a grouped PR stacks many updates.
+
 The bump map - where versions and SHAs live:
 
 - `README.md` usage pins (two `@<sha> # v<version>` lines plus one prose
