@@ -25,7 +25,26 @@ DASH_PCRE=(-e '(*UTF)[\x{2010}-\x{2015}\x{2212}]' -e '&(?:mdash|ndash|minus);')
 # from matching itself, and the short spelling is a substring of the longer ones.
 export DASH_MARKER_BYTES='dash-[o]k'
 
-# Trees outside the rule, one directory per line of $DASH_EXCLUDE - for bytes not
+# Held out by default: a package manager's, an agent's, or an upstream author's
+# bytes - nothing a consumer reads and nothing anyone retypes by hand.
+_dash_defaults=(
+	'**/node_modules/**'
+	'**/vendor/**'
+	'**/.claude/**'
+	'**/.cursor/**'
+	'**/*.lock'
+	'**/package-lock.json'
+	'**/npm-shrinkwrap.json'
+	'**/pnpm-lock.yaml'
+	'**/bun.lockb'
+	'**/go.sum'
+	'**/CHANGELOG.md'
+	'**/LICENSE*'
+	'**/CLAUDE.md'
+	'**/AGENTS.md'
+)
+
+# Trees outside the rule, one pathspec per line of $DASH_EXCLUDE - for bytes not
 # yours to edit (captured wire fixtures, append-only migration history).
 DASH_EXCLUDE_DIRS=()
 if [ -n "${DASH_EXCLUDE:-}" ]; then
@@ -38,6 +57,22 @@ fi
 # `.` first, never an empty array: bash 3.2 (macOS) errors on "${empty[@]}" under `set -u`.
 # shellcheck disable=SC2034  # out-param: read by the sourcing script
 DASH_PATHSPEC=(.)
+# glob magic: `**/name` hits every depth including the root, and a directory
+# needs the trailing `/**` - the bare prefix matches the dir, not its files.
+case "${DASH_EXCLUDE_DEFAULTS:-true}" in
+true)
+	for _dash_pat in "${_dash_defaults[@]}"; do
+		DASH_PATHSPEC+=(":(exclude,glob)${_dash_pat}")
+	done
+	unset _dash_pat
+	;;
+false) ;;
+*)
+	echo "DASH_EXCLUDE_DEFAULTS takes true or false, not '${DASH_EXCLUDE_DEFAULTS}'" >&2
+	exit 1
+	;;
+esac
+unset _dash_defaults
 if [ "${#DASH_EXCLUDE_DIRS[@]}" -gt 0 ]; then
 	for _dash_dir in "${DASH_EXCLUDE_DIRS[@]}"; do
 		DASH_PATHSPEC+=(":(exclude)${_dash_dir}")

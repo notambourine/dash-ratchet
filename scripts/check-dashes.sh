@@ -21,7 +21,7 @@
 # The banned character set and the excluded paths ($DASH_EXCLUDE, one pathspec
 # per line) live in lib/dash-set.sh next to this script.
 #
-# Usage: check-dashes.sh [base-ref | --staged]
+# Usage: check-dashes.sh [base-ref] [--staged] [--force-zero]
 #
 # With no argument the base is resolved from the event. A pull_request checkout
 # takes refs/pull/N/merge, whose first parent IS the base tip, so `fetch-depth: 2`
@@ -31,20 +31,43 @@
 # HEAD against what is staged, and the second count reads the index. Local only,
 # and bypassed by --no-verify or a clone that never installed the hook, so CI
 # stays the gate.
+#
+# --force-zero replaces all three assertions with one: this tree carries no dash
+# and no marker at all. For a repo already at zero, where a ratchet has nothing
+# to compare - no base ref, no second tree, so `fetch-depth: 1` and one grep.
+# It reads no diff, so it also catches a dash the PR did not touch.
 set -euo pipefail
 
 STAGED=0
+ZERO=0
 BASE=""
-case "${1:-}" in
---staged) STAGED=1 ;;
-*) BASE="${1:-}" ;;
-esac
+for _arg in "$@"; do
+	case "$_arg" in
+	--staged) STAGED=1 ;;
+	--force-zero) ZERO=1 ;;
+	-*)
+		echo "unknown flag: ${_arg}" >&2
+		exit 1
+		;;
+	*) BASE="$_arg" ;;
+	esac
+done
+unset _arg
 
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib/dash-set.sh
 source "$(dirname "$0")/lib/dash-set.sh"
 
-if [ "$STAGED" -eq 1 ]; then
+if [ "$ZERO" -eq 1 ]; then
+	# One tree, so nothing to resolve: the index when staged, else the checkout.
+	if [ "$STAGED" -eq 1 ]; then
+		AFTER=:index
+		AFTER_LABEL=index
+	else
+		AFTER=:worktree
+		AFTER_LABEL="working tree"
+	fi
+elif [ "$STAGED" -eq 1 ]; then
 	if git rev-parse --verify --quiet HEAD >/dev/null; then
 		BEFORE=HEAD
 		BEFORE_LABEL=HEAD
@@ -80,11 +103,11 @@ fi
 
 count_tree() {
 	local lines rc=0
-	if [ "$1" = ":index" ]; then
-		lines=$(git grep -I -h --cached --perl-regexp "${DASH_PCRE[@]}" -- "${DASH_PATHSPEC[@]}") || rc=$?
-	else
-		lines=$(git grep -I -h --perl-regexp "${DASH_PCRE[@]}" "$1" -- "${DASH_PATHSPEC[@]}") || rc=$?
-	fi
+	case "$1" in
+	:index) lines=$(git grep -I -h --cached --perl-regexp "${DASH_PCRE[@]}" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
+	:worktree) lines=$(git grep -I -h --perl-regexp "${DASH_PCRE[@]}" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
+	*) lines=$(git grep -I -h --perl-regexp "${DASH_PCRE[@]}" "$1" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
+	esac
 	# git grep exit 1 is a clean zero-dash tree. Above that it failed and printed
 	# why, so nothing redirects stderr - that turns a fatal into a bare exit code.
 	if [ "$rc" -gt 1 ]; then
@@ -106,8 +129,12 @@ report() {
 	case "$kind" in
 	dash)
 		title="Unicode dash"
-		echo "Unicode dashes on added lines. Type an ASCII hyphen instead, or hold the"
-		echo "path out of the rule with the exclude input."
+		if [ "$ZERO" -eq 1 ]; then
+			echo "Unicode dashes in this tree, which this gate requires to carry none."
+		else
+			echo "Unicode dashes on added lines."
+		fi
+		echo "Type an ASCII hyphen instead, or hold the path out with the exclude input."
 		;;
 	marker)
 		title="Opt-out marker"
@@ -125,16 +152,37 @@ report() {
 
 status=0
 
-# ---- 1 + 2. no dash and no marker on an added line -------------------------
-if [ "$STAGED" -eq 1 ]; then
-	diff_cmd=(git diff --cached --no-color -U0 "$BEFORE")
+# ---- 1 + 2. no dash and no marker, on an added line or anywhere ------------
+# Both walks emit the same `kind<tab>file:line:text`, so one loop reports either.
+if [ "$ZERO" -eq 1 ]; then
+	grep_cmd=(git grep -I -n --perl-regexp)
+	[ "$STAGED" -eq 1 ] && grep_cmd+=(--cached)
+	rc=0
+	found=$(
+		"${grep_cmd[@]}" "${DASH_PCRE[@]}" -e "$DASH_MARKER_BYTES" \
+			-- "${DASH_PATHSPEC[@]}" |
+			perl -ne '
+				BEGIN { $mre = qr/$ENV{DASH_MARKER_BYTES}/ }
+				# git grep only returned matching lines, so anything the marker
+				# misses is a dash. Marker first, as in the diff walk below.
+				my ($pfx, $text) = /^(.*?:\d+:)(.*)$/s or next;
+				printf("%s\t%s%s", $text =~ $mre ? "marker" : "dash", $pfx, $text);
+			'
+	) || rc=$?
+	if [ "$rc" -gt 1 ]; then
+		echo "::error::git grep failed (exit ${rc}) - the result is not trustworthy" >&2
+		exit "$rc"
+	fi
 else
-	diff_cmd=(git diff --no-color -U0 "${BASE}...HEAD")
-fi
-# One walk, two verdicts: the kind leads each record so bash can split them.
-found=$(
-	"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" |
-		perl -ne '
+	if [ "$STAGED" -eq 1 ]; then
+		diff_cmd=(git diff --cached --no-color -U0 "$BEFORE")
+	else
+		diff_cmd=(git diff --no-color -U0 "${BASE}...HEAD")
+	fi
+	# One walk, two verdicts: the kind leads each record so bash can split them.
+	found=$(
+		"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" |
+			perl -ne '
 			BEGIN { $re = qr/$ENV{DASH_BYTES}/; $mre = qr/$ENV{DASH_MARKER_BYTES}/ }
 			if (/^\+\+\+ b\/(.*)/) { $file = $1; next }
 			# -U0, so every line after a hunk header is an add or a delete and
@@ -148,7 +196,8 @@ found=$(
 			elsif ($text =~ $re) { printf("dash\t%s:%d:%s", $file, $line, $text) }
 			$line++;
 		'
-)
+	)
+fi
 for kind in dash marker; do
 	hits=$(printf '%s\n' "$found" | sed -n "s/^${kind}	//p")
 	if [ -n "$hits" ]; then
@@ -157,14 +206,22 @@ for kind in dash marker; do
 	fi
 done
 
-# ---- 3. repo-wide total did not rise ---------------------------------------
-before=$(count_tree "$BEFORE")
+# ---- 3. the total did not rise, or is zero under --force-zero --------------
 after=$(count_tree "$AFTER")
-delta=$((after - before))
-sign=""
-[ "$delta" -gt 0 ] && sign="+"
+if [ "$ZERO" -eq 1 ]; then
+	headline="${AFTER_LABEL} ${after}, and this gate requires 0"
+	summary="\`${AFTER_LABEL}\` **${after}**, and this gate requires 0"
+	[ "$after" -gt 0 ] && status=1
+else
+	before=$(count_tree "$BEFORE")
+	delta=$((after - before))
+	sign=""
+	[ "$delta" -gt 0 ] && sign="+"
+	headline="${BEFORE_LABEL} ${before} -> ${AFTER_LABEL} ${after} (${sign}${delta})"
+	summary="\`${BEFORE_LABEL}\` ${before} to \`${AFTER_LABEL}\` ${after} (**${sign}${delta}**)"
+fi
 echo
-echo "unicode dashes: ${BEFORE_LABEL} ${before} -> ${AFTER_LABEL} ${after} (${sign}${delta})"
+echo "unicode dashes: ${headline}"
 
 # The job log is the one place nobody opens, so the count also goes to the run
 # summary, which renders on the checks page without expanding a step.
@@ -172,15 +229,17 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 	{
 		echo "### Unicode dashes"
 		echo
-		echo "\`${BEFORE_LABEL}\` ${before} to \`${AFTER_LABEL}\` ${after} (**${sign}${delta}**)"
-		if [ "$delta" -gt 0 ]; then
+		echo "$summary"
+		if [ "$ZERO" -eq 0 ] && [ "$delta" -gt 0 ]; then
 			echo
 			echo "The total rose. This count only ever goes down."
 		fi
 	} >>"$GITHUB_STEP_SUMMARY"
 fi
 
-if [ "$delta" -gt 0 ]; then
+# Under --force-zero every dash already carries its own annotation, so the count
+# needs no second error line.
+if [ "$ZERO" -eq 0 ] && [ "$delta" -gt 0 ]; then
 	msg="the unicode-dash total rose by ${delta} - this count only ever goes down"
 	if [ "$STAGED" -eq 1 ]; then
 		echo "$msg" >&2
