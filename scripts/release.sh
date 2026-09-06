@@ -13,7 +13,7 @@ publish|--readme) ;;
 *) echo "unknown release option: ${MODE}" >&2; exit 1 ;;
 esac
 TAG="v${V}"
-ROOT=$(git rev-parse --show-toplevel)
+ROOT=$(command git rev-parse --show-toplevel)
 git() { command git -C "$ROOT" "$@"; }
 
 push() {

@@ -67,12 +67,21 @@ new_repo() {
 run_case() {
 	local name="$1" expected="$2" match="$3" rc=0 out
 	shift 3
-	out=$(git -C "$REPO" -c 'alias.release=!env PATH="$RELEASE_TEST_PATH" /bin/bash "$RELEASE_SCRIPT"' release "$@" 2>&1) || rc=$?
+	out=$(git -C "$REPO" -c "alias.release=!env PATH=\"\$RELEASE_TEST_PATH\" /bin/bash \"\$RELEASE_SCRIPT\"" release "$@" 2>&1) || rc=$?
 	if [ "$rc" -ne "$expected" ] || [[ "$out" != *"$match"* ]]; then
 		printf 'FAIL %s (exit %s, expected %s)\n%s\n' "$name" "$rc" "$expected" "$out"
 		exit 1
 	fi
 	echo "ok   release: $name"
+}
+
+expect_absent() {
+	local rc=0
+	"$@" || rc=$?
+	if [ "$rc" -ne 1 ]; then
+		echo "FAIL expected absence (exit $rc): $*"
+		exit 1
+	fi
 }
 
 no_remote_tag() {
@@ -97,7 +106,7 @@ git -C "$REPO" commit -qm drift
 gtimeout 15 git -C "$REPO" push -q origin main
 run_case 'README drift stops before publishing' 255 'README pin pattern drift' 0.4.0
 no_remote_tag
-! git -C "$REPO" show-ref --verify --quiet refs/tags/v0.4.0
+expect_absent git -C "$REPO" show-ref --verify --quiet refs/tags/v0.4.0
 
 new_repo ci
 export CI_RESULT=failure
@@ -110,22 +119,22 @@ export PUSH_TIMEOUT=true
 run_case 'push timeout skips release creation' 124 'remaining steps skipped' 0.4.0
 unset PUSH_TIMEOUT
 no_remote_tag
-! grep -q 'release create' "$RELEASE_LOG"
+expect_absent grep -q 'release create' "$RELEASE_LOG"
 
 new_repo publish
 run_case 'publishing leaves README on main' 0 'released v0.4.0' 0.4.0
 git -C "$REMOTE" show-ref --verify --quiet refs/tags/v0.4.0
 git -C "$REPO" diff --quiet
 [ "$(git -C "$REPO" branch --show-current)" = main ]
-! grep -q 'pr create' "$RELEASE_LOG"
+expect_absent grep -q 'pr create' "$RELEASE_LOG"
 
 : >"$RELEASE_LOG"
 run_case 'README update creates a separate draft PR' 0 '' 0.4.0 --readme
 [ "$(git -C "$REPO" branch --show-current)" = release/readme-v0.4.0 ]
 sha=$(git -C "$REPO" rev-parse 'v0.4.0^{commit}')
 [ "$(grep -c "@${sha} # v0.4.0" "$REPO/README.md")" -eq 2 ]
-grep -q 'the `v0.4.0` tag points at' "$REPO/README.md"
+grep -Fq "the \`v0.4.0\` tag points at" "$REPO/README.md"
 grep -q 'pr create --draft' "$RELEASE_LOG"
-! grep -q 'release create' "$RELEASE_LOG"
-! grep -q 'pr merge' "$RELEASE_LOG"
+expect_absent grep -q 'release create' "$RELEASE_LOG"
+expect_absent grep -q 'pr merge' "$RELEASE_LOG"
 echo 'release cases passed'
