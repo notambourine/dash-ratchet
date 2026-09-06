@@ -14,6 +14,7 @@
 
 - Run `scripts/release.sh <version>` without a leading `v` from clean, synced main
   after CI succeeds on its tip.
+- Run `scripts/release.sh <version> --readme` separately to open the draft pin PR.
 - For input changes, supply a short, untracked `RELEASE_NOTES_PREFIX` file with
   upgrade instructions first so Dependabot readers see them.
 - Let the release script update README pins; never edit them by hand.

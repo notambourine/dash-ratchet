@@ -22,7 +22,7 @@ jobs:
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/run.sh
+        run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/*.sh
       - name: actionlint
         env:
           VERSION: 1.7.12
@@ -54,6 +54,7 @@ jobs:
         with:
           persist-credentials: false
       - run: test/run.sh
+      - run: bash test/release.sh
 
   dogfood:
     name: Unicode dashes (force-zero=${{ matrix.force-zero }})
