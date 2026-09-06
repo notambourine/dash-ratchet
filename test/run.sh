@@ -99,6 +99,47 @@ suite() {
 	run_case "annotation data escapes percent and carriage return" 1 '%250Aend%0D'
 	unset CHECK_ARG
 
+	new_repo attributes
+	echo clean >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf 'b.txt -diff\n' >"$REPO/.gitattributes"
+	printf 'bad %s\n' "$EM" >"$REPO/b.txt"
+	commit_all head
+	run_case "attributes cannot hide added text" 1 "::error file=b.txt,line=1"
+	run_case "attributes cannot hide text from totals" 1 "main 0 -> HEAD 1 (+1)"
+	CHECK_ARG=--force-zero
+	run_case "attributes cannot hide text from force-zero" 1 "working tree 1"
+	unset CHECK_ARG
+	printf 'bad %s\n' "$EM" >"$REPO/c.txt"
+	git -C "$REPO" add c.txt
+	CHECK_ARG=--staged
+	run_case "staged text is counted without attributes" 1 "HEAD 1 -> index 2 (+1)"
+	unset CHECK_ARG
+
+	new_repo binary
+	echo clean >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf 'bad %s\n\0\n' "$EM" >"$REPO/b.bin"
+	printf '*.bin diff\n' >"$REPO/.gitattributes"
+	commit_all head
+	run_case "NUL content stays binary even with text attributes" 0 "main 0 -> HEAD 0 (0)"
+	CHECK_ARG=--force-zero
+	run_case "force-zero skips NUL content" 0 "working tree 0"
+	unset CHECK_ARG
+
+	new_repo invalid-encoding
+	echo clean >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf '\377 bad %s\n' "$EM" >"$REPO/b.txt"
+	commit_all head
+	run_case "invalid UTF-8 does not hide a dash" 1 "main 0 -> HEAD 1 (+1)"
+	CHECK_ARG=--force-zero
+	run_case "force-zero tolerates invalid UTF-8" 1 "working tree 1"
+	unset CHECK_ARG
+
 	# 2. the opt-out marker is banned, dash or no dash on the line
 	new_repo marker
 	echo "clean" >"$REPO/a.txt"

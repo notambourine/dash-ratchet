@@ -1,41 +1,4 @@
 #!/bin/bash
-# Unicode-dash ratchet. Three assertions, against the PR's base branch in CI or
-# against HEAD in a pre-commit hook:
-#
-#   1. No added line carries a unicode dash.
-#   2. No added line carries an opt-out marker.
-#   3. The repo-wide total did not go up.
-#
-# (1) is the one a contributor reads and fixes, because it names the line. On a
-# merge-ref checkout it already sees the whole net effect of the merge, since the
-# base tip IS the merge base there.
-#
-# (2) catches the opt-out marker itself: one that suppresses nothing still reads
-# as permission to the next author. Whole paths go in $DASH_EXCLUDE.
-#
-# (3) is the number that has to keep falling, and the one edit (1) cannot see is
-# a base that moved under it: a stale branch reinstating dashes the base already
-# removed shows up in no diff hunk. Both counts read trees the depth-2 clone
-# already holds, so (3) costs a grep, not a fetch.
-#
-# The banned character set and the excluded paths ($DASH_EXCLUDE, one pathspec
-# per line) live in lib/dash-set.sh next to this script.
-#
-# Usage: check-dashes.sh [base-ref] [--staged] [--force-zero]
-#
-# With no argument the base is resolved from the event. A pull_request checkout
-# takes refs/pull/N/merge, whose first parent IS the base tip, so `fetch-depth: 2`
-# carries both sides and none of the history between them.
-#
-# --staged reads the index instead of a ref, for a pre-commit hook: the diff is
-# HEAD against what is staged, and the second count reads the index. Local only,
-# and bypassed by --no-verify or a clone that never installed the hook, so CI
-# stays the gate.
-#
-# --force-zero replaces all three assertions with one: this tree carries no dash
-# and no marker at all. For a repo already at zero, where a ratchet has nothing
-# to compare - no base ref, no second tree, so `fetch-depth: 1` and one grep.
-# It reads no diff, so it also catches a dash the PR did not touch.
 set -euo pipefail
 
 STAGED=0
@@ -58,6 +21,11 @@ unset _arg
 # shellcheck source=lib/dash-set.sh
 source "$(dirname "$0")/lib/dash-set.sh"
 
+export DASH_ROOT
+DASH_ROOT=$(git rev-parse --show-toplevel)
+EMPTY_TREE=$(git hash-object -t tree /dev/null)
+git() { command git -C "$DASH_ROOT" "$@"; }
+
 if [ "$ZERO" -eq 1 ]; then
 	# One tree, so nothing to resolve: the index when staged, else the checkout.
 	if [ "$STAGED" -eq 1 ]; then
@@ -73,7 +41,7 @@ elif [ "$STAGED" -eq 1 ]; then
 		BEFORE_LABEL=HEAD
 	else
 		# Root commit: the empty tree stands in for the HEAD that does not exist yet.
-		BEFORE=$(git hash-object -t tree /dev/null)
+		BEFORE="$EMPTY_TREE"
 		BEFORE_LABEL="empty tree"
 	fi
 	AFTER=:index
@@ -101,25 +69,14 @@ else
 	AFTER_LABEL=HEAD
 fi
 
-count_tree() {
-	local lines rc=0
-	case "$1" in
-	:index) lines=$(git grep -I -h --cached --perl-regexp "${DASH_PCRE[@]}" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
-	:worktree) lines=$(git grep -I -h --perl-regexp "${DASH_PCRE[@]}" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
-	*) lines=$(git grep -I -h --perl-regexp "${DASH_PCRE[@]}" "$1" -- "${DASH_PATHSPEC[@]}") || rc=$? ;;
+list_tree() {
+	local tree="$1"
+	local list=(git diff --raw --no-abbrev --no-renames --no-ext-diff --no-textconv --no-relative -z)
+	case "$tree" in
+	:index|:worktree) list+=(--cached "$EMPTY_TREE") ;;
+	*) list+=("$EMPTY_TREE" "$tree") ;;
 	esac
-	# git grep exit 1 is a clean zero-dash tree. Above that it failed and printed
-	# why, so nothing redirects stderr - that turns a fatal into a bare exit code.
-	if [ "$rc" -gt 1 ]; then
-		echo "::error::git grep failed on '${1}' (exit ${rc}) - the dash count is not trustworthy" >&2
-		return "$rc"
-	fi
-	printf '%s\n' "$lines" |
-		perl -ne '
-			BEGIN { $re = qr/$ENV{DASH_BYTES}/; $n = 0 }
-			$n += () = /$re/g;
-			END { print $n + 0 }
-		'
+	"${list[@]}" -- "${DASH_PATHSPEC[@]}"
 }
 
 export DASH_STAGED="$STAGED"
@@ -127,16 +84,9 @@ SCANNER="$(dirname "$0")/lib/scan.pl"
 status=0
 
 if [ "$ZERO" -eq 1 ]; then
-	grep_cmd=(git grep -I -n -z --perl-regexp)
-	[ "$STAGED" -eq 1 ] && grep_cmd+=(--cached)
-	{
-		rc=0
-		"${grep_cmd[@]}" "${DASH_PCRE[@]}" -e "$DASH_MARKER_BYTES" \
-			-- "${DASH_PATHSPEC[@]}" || rc=$?
-		[ "$rc" -le 1 ] || exit "$rc"
-	} | perl "$SCANNER" zero || status=$?
+	after=$(list_tree "$AFTER" | perl "$SCANNER" zero "$AFTER") || status=$?
 else
-	diff_cmd=(git diff --no-color --no-ext-diff --no-textconv
+	diff_cmd=(git diff --text --word-diff=none --no-relative --no-color --no-ext-diff --no-textconv
 		--src-prefix=a/ --dst-prefix=b/ --inter-hunk-context=0
 		--output-indicator-new=+ --output-indicator-old=- --output-indicator-context=' ' -U0)
 	if [ "$STAGED" -eq 1 ]; then
@@ -144,21 +94,24 @@ else
 	else
 		diff_cmd+=("${BASE}...HEAD")
 	fi
-	"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" | perl "$SCANNER" diff || status=$?
+	"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" | perl "$SCANNER" diff "$AFTER" || status=$?
 fi
 if [ "$status" -gt 1 ]; then
 	echo "::error::scan failed (exit ${status}) - the result is not trustworthy" >&2
 	exit "$status"
 fi
 
-# ---- 3. the total did not rise, or is zero under --force-zero --------------
-after=$(count_tree "$AFTER")
 if [ "$ZERO" -eq 1 ]; then
 	headline="${AFTER_LABEL} ${after}, and this gate requires 0"
 	summary="\`${AFTER_LABEL}\` **${after}**, and this gate requires 0"
 	[ "$after" -gt 0 ] && status=1
 else
-	before=$(count_tree "$BEFORE")
+	counts=$({
+		list_tree "$BEFORE" || exit $?
+		printf '\0'
+		list_tree "$AFTER"
+	} | perl "$SCANNER" count :trees)
+	read -r before after <<<"$counts"
 	delta=$((after - before))
 	sign=""
 	[ "$delta" -gt 0 ] && sign="+"
@@ -168,8 +121,6 @@ fi
 echo
 echo "unicode dashes: ${headline}"
 
-# The job log is the one place nobody opens, so the count also goes to the run
-# summary, which renders on the checks page without expanding a step.
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 	{
 		echo "### Unicode dashes"
@@ -182,8 +133,6 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 	} >>"$GITHUB_STEP_SUMMARY"
 fi
 
-# Under --force-zero every dash already carries its own annotation, so the count
-# needs no second error line.
 if [ "$ZERO" -eq 0 ] && [ "$delta" -gt 0 ]; then
 	msg="the unicode-dash total rose by ${delta} - this count only ever goes down"
 	if [ "$STAGED" -eq 1 ]; then

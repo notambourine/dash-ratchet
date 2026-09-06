@@ -47,6 +47,9 @@ Banned: U+2010 through U+2015, U+2212, and the HTML entities named `mdash`,
 `ndash`, and `minus`. The old opt-out marker (`dash-` followed by `ok`) is also
 banned. Exclude paths whose contents you cannot edit; there is no line opt-out.
 
+Only regular tracked files are scanned. Files containing NUL bytes are skipped;
+Git attributes cannot exempt text files. Matching uses bytes, regardless of locale.
+
 Default exclusions:
 
 ```text
