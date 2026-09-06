@@ -147,6 +147,26 @@ suite() {
 	run_case "force-zero tolerates invalid UTF-8" 1 "working tree 1"
 	CHECK_ARGS=()
 
+	local original_path="$PATH" failing_bin="$TMP/$LOCALE_TAG-failing-bin"
+	export DASH_TEST_GIT
+	DASH_TEST_GIT=$(command -v git)
+	mkdir "$failing_bin"
+	cat >"$failing_bin/git" <<'EOF'
+#!/bin/bash
+case " $* " in
+*' diff '*) "$DASH_TEST_GIT" "$@"; exit 128 ;;
+*) exec "$DASH_TEST_GIT" "$@" ;;
+esac
+EOF
+	chmod +x "$failing_bin/git"
+	export PATH="$failing_bin:$PATH"
+	run_case "findings cannot mask a failed diff command" 2 "git scan failed (exit 128)"
+	CHECK_ARGS=(--force-zero)
+	run_case "findings cannot mask a failed tree command" 2 "git scan failed (exit 128)"
+	CHECK_ARGS=()
+	export PATH="$original_path"
+	unset DASH_TEST_GIT
+
 	# 2. the opt-out marker is banned, dash or no dash on the line
 	new_repo marker
 	echo "clean" >"$REPO/a.txt"

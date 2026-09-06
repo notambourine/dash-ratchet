@@ -79,12 +79,31 @@ list_tree() {
 	"${list[@]}" -- "${DASH_PATHSPEC[@]}"
 }
 
+list_pair() {
+	list_tree "$BEFORE" || return $?
+	printf '\0'
+	list_tree "$AFTER"
+}
+
+scan() {
+	local mode="$1" target="$2" stages
+	shift 2
+	"$@" | perl "$SCANNER" "$mode" "$target" || {
+		stages=("${PIPESTATUS[@]}")
+		if [ "${stages[0]}" -ne 0 ]; then
+			echo "::error::git scan failed (exit ${stages[0]})" >&2
+			return 2
+		fi
+		return "${stages[1]}"
+	}
+}
+
 export DASH_STAGED="$STAGED"
 SCANNER="$(dirname "$0")/lib/scan.pl"
 status=0
 
 if [ "$ZERO" -eq 1 ]; then
-	after=$(list_tree "$AFTER" | perl "$SCANNER" zero "$AFTER") || status=$?
+	after=$(scan zero "$AFTER" list_tree "$AFTER") || status=$?
 else
 	diff_cmd=(git diff --text --word-diff=none --no-relative --no-color --no-ext-diff --no-textconv
 		--src-prefix=a/ --dst-prefix=b/ --inter-hunk-context=0
@@ -94,7 +113,7 @@ else
 	else
 		diff_cmd+=("${BASE}...HEAD")
 	fi
-	"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" | perl "$SCANNER" diff "$AFTER" || status=$?
+	scan diff "$AFTER" "${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" || status=$?
 fi
 if [ "$status" -gt 1 ]; then
 	echo "::error::scan failed (exit ${status}) - the result is not trustworthy" >&2
@@ -106,11 +125,7 @@ if [ "$ZERO" -eq 1 ]; then
 	summary="\`${AFTER_LABEL}\` **${after}**, and this gate requires 0"
 	[ "$after" -gt 0 ] && status=1
 else
-	counts=$({
-		list_tree "$BEFORE" || exit $?
-		printf '\0'
-		list_tree "$AFTER"
-	} | perl "$SCANNER" count :trees)
+	counts=$(scan count :trees list_pair)
 	read -r before after <<<"$counts"
 	delta=$((after - before))
 	sign=""
