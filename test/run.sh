@@ -73,6 +73,32 @@ suite() {
 	commit_all head
 	run_case "added dash fails, names the line" 1 "::error file=b.txt,line=1"
 
+	new_repo header-content
+	printf 'old %s\n' "$EM" >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	printf 'clean\n' >"$REPO/a.txt"
+	printf '++ b/fake %s\n' "$EM" >"$REPO/b.txt"
+	commit_all head
+	run_case "header-like content fails with an unchanged total" 1 "::error file=b.txt,line=1"
+	printf '++ b/fake\nbad %s\n' "$EM" >"$REPO/b.txt"
+	commit_all line-number
+	git -C "$REPO" config diff.noprefix true
+	run_case "header-like content preserves the next line number" 1 "::error file=b.txt,line=2"
+
+	new_repo quoted-path
+	echo clean >"$REPO/a.txt"
+	commit_all base
+	git -C "$REPO" checkout -qb pr
+	local odd_path=$'odd":part,%name\nnext.txt'
+	printf 'bad %s %%0Aend\r\n' "$EM" >"$REPO/$odd_path"
+	commit_all head
+	run_case "quoted paths retain escaped annotation properties" 1 'file=odd"%3Apart%2C%25name%0Anext.txt,line=1'
+	CHECK_ARG=--force-zero
+	run_case "force-zero preserves unusual filenames" 1 'file=odd"%3Apart%2C%25name%0Anext.txt,line=1'
+	run_case "annotation data escapes percent and carriage return" 1 '%250Aend%0D'
+	unset CHECK_ARG
+
 	# 2. the opt-out marker is banned, dash or no dash on the line
 	new_repo marker
 	echo "clean" >"$REPO/a.txt"

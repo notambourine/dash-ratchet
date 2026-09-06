@@ -122,89 +122,34 @@ count_tree() {
 		'
 }
 
-# report <kind> <findings>: prints the human list, then one annotation per line
-# when a workflow is reading. `kind` is the headline the contributor acts on.
-report() {
-	local kind="$1" findings="$2" title
-	case "$kind" in
-	dash)
-		title="Unicode dash"
-		if [ "$ZERO" -eq 1 ]; then
-			echo "Unicode dashes in this tree, which this gate requires to carry none."
-		else
-			echo "Unicode dashes on added lines."
-		fi
-		echo "Type an ASCII hyphen instead, or hold the path out with the exclude input."
-		;;
-	marker)
-		title="Opt-out marker"
-		echo "The dash-o""k marker no longer suppresses anything and is banned itself."
-		echo "Fix the dash on the line, or hold the path out with the exclude input."
-		;;
-	esac
-	echo
-	printf '%s\n' "$findings"
-	[ "$STAGED" -eq 1 ] && return 0
-	printf '%s\n' "$findings" | while IFS=: read -r file line text; do
-		echo "::error file=${file},line=${line},title=${title}::${text}"
-	done
-}
-
+export DASH_STAGED="$STAGED"
+SCANNER="$(dirname "$0")/lib/scan.pl"
 status=0
 
-# ---- 1 + 2. no dash and no marker, on an added line or anywhere ------------
-# Both walks emit the same `kind<tab>file:line:text`, so one loop reports either.
 if [ "$ZERO" -eq 1 ]; then
-	grep_cmd=(git grep -I -n --perl-regexp)
+	grep_cmd=(git grep -I -n -z --perl-regexp)
 	[ "$STAGED" -eq 1 ] && grep_cmd+=(--cached)
-	rc=0
-	found=$(
+	{
+		rc=0
 		"${grep_cmd[@]}" "${DASH_PCRE[@]}" -e "$DASH_MARKER_BYTES" \
-			-- "${DASH_PATHSPEC[@]}" |
-			perl -ne '
-				BEGIN { $mre = qr/$ENV{DASH_MARKER_BYTES}/ }
-				# git grep only returned matching lines, so anything the marker
-				# misses is a dash. Marker first, as in the diff walk below.
-				my ($pfx, $text) = /^(.*?:\d+:)(.*)$/s or next;
-				printf("%s\t%s%s", $text =~ $mre ? "marker" : "dash", $pfx, $text);
-			'
-	) || rc=$?
-	if [ "$rc" -gt 1 ]; then
-		echo "::error::git grep failed (exit ${rc}) - the result is not trustworthy" >&2
-		exit "$rc"
-	fi
+			-- "${DASH_PATHSPEC[@]}" || rc=$?
+		[ "$rc" -le 1 ] || exit "$rc"
+	} | perl "$SCANNER" zero || status=$?
 else
+	diff_cmd=(git diff --no-color --no-ext-diff --no-textconv
+		--src-prefix=a/ --dst-prefix=b/ --inter-hunk-context=0
+		--output-indicator-new=+ --output-indicator-old=- --output-indicator-context=' ' -U0)
 	if [ "$STAGED" -eq 1 ]; then
-		diff_cmd=(git diff --cached --no-color -U0 "$BEFORE")
+		diff_cmd+=(--cached "$BEFORE")
 	else
-		diff_cmd=(git diff --no-color -U0 "${BASE}...HEAD")
+		diff_cmd+=("${BASE}...HEAD")
 	fi
-	# One walk, two verdicts: the kind leads each record so bash can split them.
-	found=$(
-		"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" |
-			perl -ne '
-			BEGIN { $re = qr/$ENV{DASH_BYTES}/; $mre = qr/$ENV{DASH_MARKER_BYTES}/ }
-			if (/^\+\+\+ b\/(.*)/) { $file = $1; next }
-			# -U0, so every line after a hunk header is an add or a delete and
-			# only the adds advance the new-file line number.
-			if (/^\@\@ .*? \+(\d+)/) { $line = $1; next }
-			next unless /^\+/;
-			my $text = substr($_, 1);
-			# A line can hit both. The marker text also asks for the dash, so it wins:
-			# naming the dash alone leaves the marker to fail the next run.
-			if ($text =~ $mre) { printf("marker\t%s:%d:%s", $file, $line, $text) }
-			elsif ($text =~ $re) { printf("dash\t%s:%d:%s", $file, $line, $text) }
-			$line++;
-		'
-	)
+	"${diff_cmd[@]}" -- "${DASH_PATHSPEC[@]}" | perl "$SCANNER" diff || status=$?
 fi
-for kind in dash marker; do
-	hits=$(printf '%s\n' "$found" | sed -n "s/^${kind}	//p")
-	if [ -n "$hits" ]; then
-		report "$kind" "$hits"
-		status=1
-	fi
-done
+if [ "$status" -gt 1 ]; then
+	echo "::error::scan failed (exit ${status}) - the result is not trustworthy" >&2
+	exit "$status"
+fi
 
 # ---- 3. the total did not rise, or is zero under --force-zero --------------
 after=$(count_tree "$AFTER")
