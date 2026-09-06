@@ -1,61 +1,21 @@
-# dash-ratchet
+# Repository rules
 
-Published GitHub Action + reusable workflow. Consumers pin a commit SHA; the
-README owns usage. This file owns how to cut a release and what may be edited
-where.
+- Land changes through squash-merged PRs. Sign commits; never push directly to main.
+  Self-merge after required checks pass.
+- Keep usage in README. Read code and CI for implementation and check commands.
+  Leave CI-covered checks to CI unless iterating on a fix.
+- Keep every tracked file free of banned dashes, HTML dash entities, and the
+  opt-out marker. Build test fixtures from escapes or fragments.
+- Preserve Bash 3.2 compatibility and operation without a UTF-8 locale.
+- Recheck the actionlint context suppression when upgrading actionlint; remove
+  it once supported.
 
-## Release
+# Releases
 
-Run `scripts/release.sh <version>` (no leading `v`) from a clean, synced main.
-It verifies CI is green on the exact tip, tags `v<version>`, publishes
-generated release notes, then re-pins the README examples to the tag commit
-through a squash-merged PR.
-
-A release that adds or changes an input ships upgrade instructions through
-`RELEASE_NOTES_PREFIX=<file>`, which prepends that file to the generated notes.
-Dependabot quotes the release body verbatim into every consumer's bump PR, so
-the prefix is the one channel that reaches a repo pinned to an older SHA. Keep
-the file untracked (a tracked one goes stale the next release) and keep it
-short and front-loaded: consumers read it inside a collapsed `Release notes`
-section that Dependabot truncates when a grouped PR stacks many updates.
-
-The bump map - where versions and SHAs live:
-
-- `README.md` usage pins (two `@<sha> # v<version>` lines plus one prose
-  mention of the tag) are the ONLY derived SHAs in the repo, and release.sh
-  owns them. Invariant: a commit cannot contain its own SHA, so main's README
-  points at the latest tag and each tag's README points at the release before
-  it. Never hand-edit the pins.
-- `.github/workflows/ratchet.yml` needs no release bump: it checks out its own
-  source at `job.workflow_sha`, the ref the caller pinned.
-- `actions/checkout` pins and the actionlint/zizmor versions + sha256 in
-  `ci.yml` are dependency bumps, not release bumps.
-
-Tags are immutable by ruleset. A bad release gets the next patch version,
-never a moved tag. No floating `v0` major tag while 0.x.
-
-## Main is locked
-
-Every change lands through a squash-merged PR, the release README bump and
-`.github/workflows/` edits included. No approval is required, so a PR can be
-self-merged. Commits must be signed.
-
-## Repo rules
-
-- No literal unicode dash lands in this tree; the dogfood CI job gates it.
-  There is no per-line opt-out, and the opt-out marker is itself banned, so
-  nothing in this tree may spell it either. Build a needed dash or HTML dash
-  entity from pieces at runtime, the way `test/run.sh` and `lib/dash-set.sh`
-  do, or hold the path out through `DASH_EXCLUDE`. The dogfood job runs with
-  `exclude-defaults: "false"`, so the built-in hold-out list buys this tree
-  nothing: its own `CLAUDE.md` and `LICENSE` are gated like everything else.
-- Everything runs on `ubuntu-slim`: bash, git, perl, curl only, no UTF-8
-  locale (the reason for `(*UTF)` in `scripts/lib/dash-set.sh`), 15-minute
-  hard kill.
-- `.github/actionlint.yaml` suppresses the `job.workflow_sha` /
-  `job.workflow_repository` context warning because actionlint's schema lags
-  the real context. On an actionlint bump, re-check and drop the ignore once
-  it knows the properties.
-- Before pushing: `shellcheck -x scripts/*.sh scripts/lib/*.sh test/run.sh`,
-  `actionlint`, `zizmor .`, and `test/run.sh` (runs itself under both the
-  ambient locale and `LC_ALL=C`).
+- Run `scripts/release.sh <version>` without a leading `v` from clean, synced main
+  after CI succeeds on its tip.
+- For input changes, supply a short, untracked `RELEASE_NOTES_PREFIX` file with
+  upgrade instructions first so Dependabot readers see them.
+- Let the release script update README pins; never edit them by hand.
+- Never move published tags. Fix a bad release with a patch version.
+- Do not publish floating major tags during 0.x.
