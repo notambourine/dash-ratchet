@@ -12,9 +12,6 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Every job runs on ubuntu-slim on purpose: slim is a bare container with no
-# UTF-8 locale, so passing here proves the gate is locale-proof. Slim is also
-# unprivileged, which is why no job carries a harden-runner step.
 jobs:
   lint:
     name: Lint
@@ -25,7 +22,7 @@ jobs:
         with:
           persist-credentials: false
       - name: shellcheck
-        run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/run.sh
+        run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/*.sh
       - name: actionlint
         env:
           VERSION: 1.7.12
@@ -57,26 +54,16 @@ jobs:
         with:
           persist-credentials: false
       - run: test/run.sh
+      - run: bash test/release.sh
 
   dogfood:
-    name: Unicode dashes (self)
+    name: Unicode dashes (force-zero=${{ matrix.force-zero }})
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    steps:
-      # Matches ratchet.yml on purpose: the depth consumers get is the depth
-      # this repo proves the gate against.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-          persist-credentials: false
-      # No hold-outs here: this tree's rule covers its own CLAUDE.md and LICENSE,
-      # and turning the list off is the only place the switch gets exercised.
-      - uses: ./
-        with:
-          exclude-defaults: "false"
-      # A depth-2 checkout satisfies force-zero too, so both modes run here.
-      - uses: ./
-        with:
-          exclude-defaults: "false"
-          force-zero: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        force-zero: [false, true]
+    uses: ./.github/workflows/ratchet.yml
+    with:
+      exclude-defaults: false
+      force-zero: ${{ matrix.force-zero }}

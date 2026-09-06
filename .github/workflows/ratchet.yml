@@ -1,9 +1,5 @@
 name: Dash ratchet
 
-# Callable job for the unicode-dash gate: dashes may only ever decrease. The
-# caller owns the pull_request trigger and its branch list; this file owns the
-# runner tier, the checkout, and the timeout.
-
 on:
   workflow_call:
     inputs:
@@ -30,14 +26,11 @@ permissions:
 jobs:
   dashes:
     name: Unicode dashes
-    # ubuntu-slim runs unprivileged, so harden-runner cannot load here. The
-    # gate needs only bash, git, and perl, all on slim's image.
+    # Slim is unprivileged, so harden-runner cannot load here.
     runs-on: ubuntu-slim
-    timeout-minutes: 5 # slim terminates any job at 15
+    timeout-minutes: 5
     steps:
-      # 2, not 0: HEAD is refs/pull/N/merge and HEAD^1 is the base tip, so
-      # depth 2 carries both sides of the diff and both trees to count.
-      # force-zero reads one tree and no diff, so it needs only depth 1.
+      # A merge ref's first parent supplies the base without fetching history.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: ${{ inputs.force-zero && 1 || 2 }}
