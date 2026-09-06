@@ -23,13 +23,13 @@ permissions:
 
 jobs:
   dashes:
-    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@ac19421270755a042257789a577d5aa423b46b82 # v0.3.0
+    uses: notambourine/dash-ratchet/.github/workflows/ratchet.yml@556a4457c467fb9c28a3240f7f030bf9204cb357 # v0.4.0
     with:
       exclude: |
         lib/db/migrations
 ```
 
-The pinned commit is the one the `v0.3.0` tag points at.
+The pinned commit is the one the `v0.4.0` tag points at.
 
 | Input | Default | Effect |
 | --- | --- | --- |
@@ -72,7 +72,7 @@ Use for a custom runner, extra steps, or GitHub Enterprise Server:
   with:
     fetch-depth: 2
     persist-credentials: false
-- uses: notambourine/dash-ratchet@ac19421270755a042257789a577d5aa423b46b82 # v0.3.0
+- uses: notambourine/dash-ratchet@556a4457c467fb9c28a3240f7f030bf9204cb357 # v0.4.0
 ```
 
 Depth 2 supplies the PR merge ref's first parent. For another checkout, fetch
