@@ -7,8 +7,6 @@
 - Keep every tracked file free of banned dashes, HTML dash entities, and the
   opt-out marker. Build test fixtures from escapes or fragments.
 - Preserve Bash 3.2 compatibility and operation without a UTF-8 locale.
-- Recheck the actionlint context suppression when upgrading actionlint; remove
-  it once supported.
 
 # Releases
 

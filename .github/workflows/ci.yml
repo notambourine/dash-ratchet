@@ -25,11 +25,11 @@ jobs:
         run: shellcheck -x scripts/*.sh scripts/lib/*.sh test/*.sh
       - name: actionlint
         env:
-          VERSION: 1.7.12
-          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          VERSION: 1.15.1
+          SHA256: cf23bb0eb29c32ac61e9a096de1931db35edf15448dde890292ead15ad27c669
         run: |
           curl -sSfL -o /tmp/actionlint.tar.gz \
-            "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+            "https://github.com/kjanat/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
           echo "${SHA256}  /tmp/actionlint.tar.gz" | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           /tmp/actionlint
